@@ -1,10 +1,41 @@
-# Python-generated files
+# Python bytecode files
 __pycache__/
-*.py[oc]
-build/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
 dist/
+build/
 wheels/
-*.egg-info
+*.egg-info/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
 
 # Virtual environments
+.env
 .venv
+env/
+venv/
+ENV/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project-specific
+*.ttl
+*.bak
+!*.pcap
+!*.pcap.gz
+
+# macOS specific files
+.DS_Store

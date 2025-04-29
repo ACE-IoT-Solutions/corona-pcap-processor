@@ -1,5 +1,8 @@
 # Corona BACnet PCAP Processor
 
+[![CI](https://github.com/aceiot/corona-pcap-processor/actions/workflows/ci.yml/badge.svg)](https://github.com/aceiot/corona-pcap-processor/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/aceiot/corona-pcap-processor/branch/main/graph/badge.svg)](https://codecov.io/gh/aceiot/corona-pcap-processor)
+
 A Python tool for analyzing BACnet network traffic from PCAP files and generating Corona-compatible metrics.
 
 ## Features
@@ -27,12 +30,16 @@ The main analyzer processes PCAP files containing BACnet traffic:
 python main.py <pcap_file> [--debug]
 ```
 
-### Corona Metrics Generator (`corona_metrics.py`)
+### Corona Metrics Generator
 
-Generates Corona-compatible metrics from the PCAP analysis:
+Generates Corona-compatible metrics from the PCAP analysis using the rdflib library:
 
 ```bash
-python corona_metrics.py <pcap_file> <output_ttl_file> [--debug]
+# Using the convenience wrapper script
+./corona-metrics <pcap_file> <output_ttl_file> [--capture-device=<address>] [--debug]
+
+# Or directly with the module
+python corona_metrics.py <pcap_file> <output_ttl_file> [--capture-device=<address>] [--debug]
 ```
 
 ### Testing
@@ -40,14 +47,39 @@ python corona_metrics.py <pcap_file> <output_ttl_file> [--debug]
 Run the test suite to verify functionality:
 
 ```bash
-python -m unittest test_pcap_processor.py
+# Run all tests
+python -m pytest tests/
+
+# Run specific test file
+python -m pytest tests/test_metrics.py
+
+# Run a specific test
+python -m pytest tests/test_metrics.py::TestSpecificPcapContent::test_whohas_ihave_support
 ```
+
+### Project Structure
+
+```
+corona-pcap-processor/
+├── main.py                  # Main BACnet PCAP analyzer
+├── corona_metrics.py        # Metrics generator using rdflib
+├── corona-metrics           # Convenience wrapper script
+├── tests/                   # Test suite directory
+│   ├── __init__.py          # Package marker
+│   ├── test_metrics.py      # Tests for metrics generator
+│   ├── test_pcap_processor.py # Tests for PCAP processor
+│   └── validate_metrics.py  # Utility to validate metrics against Corona standard
+├── pcaps/                   # Sample PCAP files
+├── *.pcap, *.pcap.gz        # Various sample PCAP files for testing
+└── *.bak                    # Backup files (older implementations)
 
 ## Requirements
 
 - Python 3.13+
 - bacpypes3
 - python-libpcap
+- rdflib
+- pytest (for running tests)
 
 ## Installation
 
@@ -115,13 +147,16 @@ Address Statistics:
     Summary: 1 BACnet/IP, 1 remote network instances of this device
 ```
 
-## Diagnostic Tools
+## Recent Improvements
 
-The package includes additional utilities for BACnet packet inspection:
+The codebase has been substantially improved with the following changes:
 
-- `debug_frame.py` - Displays detailed frame attributes
-- `decode_packet.py` - Attempts to decode raw packet data 
-- `sample_i_am.py` - Generates a sample I-Am message for testing
+- Refactored metrics generation to use `rdflib` instead of string manipulation
+- Improved metric naming with sender-focused naming convention for clarity
+- Added support for WhoHas/IHave BACnet message types
+- Restructured the project with a dedicated tests directory
+- Enhanced test coverage with comprehensive test cases
+- Optimized MS/TP device detection and address handling
 
 ## Architecture
 
@@ -132,11 +167,3 @@ The package includes additional utilities for BACnet packet inspection:
 - Maintains statistics per BACnet address (both IP and network addresses)
 - Supports debug mode for detailed packet inspection
 
-## Recent Improvements
-
-- Enhanced detection of remoteStation BACnet addresses
-- Improved handling of forwarded NPDUs from routers/BBMDs
-- Added better device classification (IP, MS/TP, forwarded)
-- Enhanced output formatting with consistent indentation and grouping
-- Improved debug messaging for better troubleshooting
-- Better handling of different I-Am message formats
