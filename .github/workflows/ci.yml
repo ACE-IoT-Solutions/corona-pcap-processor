@@ -80,7 +80,7 @@ jobs:
     - name: Clone Corona Standard Repository
       uses: actions/checkout@v4
       with:
-        repository: aceiot/corona-standard
+        repository: ACE-IoT-Solutions/corona-framework
         path: corona-standard
         
     - name: Generate sample metrics
