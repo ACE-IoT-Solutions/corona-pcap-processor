@@ -4,14 +4,10 @@ Test suite for BACnet PCAP processor and Corona metrics generator.
 """
 
 import os
-import sys
 import tempfile
 import unittest
 
-# Add parent directory to path to access modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-# Import from new refactored modules
+# Import from src package
 from bacnet_analyzer import BACnetAnalyzer
 from bacnet_analyzer.corona_metrics import CoronaMetricsGenerator
 

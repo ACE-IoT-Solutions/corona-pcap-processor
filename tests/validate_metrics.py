@@ -15,9 +15,6 @@ import sys
 import tempfile
 from typing import Optional
 
-# Add parent directory to path to access refactored modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from bacnet_analyzer import BACnetAnalyzer
 from bacnet_analyzer.corona_metrics import CoronaMetricsGenerator
 

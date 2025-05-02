@@ -6,10 +6,9 @@ Test suite for BACnet PCAP analyzer and Corona metrics generator.
 import os
 import sys
 import tempfile
-from typing import Any, Dict, Set
 
 import pytest
-from rdflib import Graph, Namespace, URIRef
+from rdflib import Graph, Namespace
 
 # Add parent directory to path to access modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -90,9 +89,9 @@ class TestBACnetAnalyzer:
 
         # Check that we found at least one of the standard message types
         standard_types = {"WhoIsRequest", "IAmRequest"}
-        assert (
-            len(message_types.intersection(standard_types)) > 0
-        ), "No standard BACnet message types found"
+        assert len(message_types.intersection(standard_types)) > 0, (
+            "No standard BACnet message types found"
+        )
 
 
 class TestCoronaMetricsGenerator:
@@ -345,9 +344,9 @@ class TestSpecificPcapContent:
 
             # These should be equal for each interface in our model
             if packets_received > 0:
-                assert (
-                    packets_received == total_bacnet_messages
-                ), f"Inconsistency for {interface}: packetsReceived={packets_received}, totalBacnetMessagesSent={total_bacnet_messages}"
+                assert packets_received == total_bacnet_messages, (
+                    f"Inconsistency for {interface}: packetsReceived={packets_received}, totalBacnetMessagesSent={total_bacnet_messages}"
+                )
 
             # Verify that requests + responses count matches other counters
             requests = 0
@@ -368,14 +367,14 @@ class TestSpecificPcapContent:
 
             iam_responses = 0
             for value in graph.objects(interface, CORONA.iAmResponsesSent):
-                iam_responses = int(str(value))
+                iam_responses = int(str(value)) 
                 break
 
             # Check that WhoIs counts are reflected in totalRequestsSent
             if whois_requests > 0:
-                assert (
-                    requests >= whois_requests
-                ), f"WhoIs requests not included in total requests for {interface}"
+                assert requests >= whois_requests, (
+                    f"WhoIs requests not included in total requests for {interface}"
+                )
 
             # In our implementation, we might see IAm responses in the PCAP
             # even if we don't have a corresponding totalResponsesSent count
@@ -398,15 +397,15 @@ class TestSpecificPcapContent:
 
             # If we have WhoHas requests, verify they're counted in total requests
             if whohas_requests > 0:
-                assert (
-                    requests >= whohas_requests
-                ), f"WhoHas requests not included in total requests for {interface}"
+                assert requests >= whohas_requests, (
+                    f"WhoHas requests not included in total requests for {interface}"
+                )
 
             # If we have IHave responses, verify they're counted in total responses
             if ihave_responses > 0:
-                assert (
-                    responses >= ihave_responses
-                ), f"IHave responses not included in total responses for {interface}"
+                assert responses >= ihave_responses, (
+                    f"IHave responses not included in total responses for {interface}"
+                )
 
 
 class TestAddressHandling:
@@ -472,9 +471,9 @@ class TestAddressHandling:
                     # MS/TP MAC addresses should be integers (no leading zeros)
                     try:
                         int(mac_value)  # Should parse as an integer
-                        assert not mac_value.startswith(
-                            "0"
-                        ), "MS/TP MAC should not have leading zeros"
+                        assert not mac_value.startswith("0"), (
+                            "MS/TP MAC should not have leading zeros"
+                        )
                     except ValueError:
                         assert False, f"MS/TP MAC address '{mac_value}' is not a valid integer"
 

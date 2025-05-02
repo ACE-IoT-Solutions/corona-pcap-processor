@@ -2,12 +2,10 @@
 Functions for processing BACnet packets from PCAP files.
 """
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Optional, Tuple
 
-from bacpypes3.basetypes import Address, ObjectIdentifier
-from bacpypes3.pdu import PDU
+from bacpypes3.basetypes import Address
 
-from .constants import ROUTED_MESSAGE_TYPES, SERVICE_CHOICE_TO_TYPE
 from .models import DeviceInfo
 
 

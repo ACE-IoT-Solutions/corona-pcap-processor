@@ -2,7 +2,7 @@
 Functions for collecting and aggregating BACnet packet statistics.
 """
 
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Optional
 
 from .constants import ROUTED_MESSAGE_TYPES
 from .models import AddressStats

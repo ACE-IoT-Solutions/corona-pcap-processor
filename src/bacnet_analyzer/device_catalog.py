@@ -4,10 +4,8 @@ Functions for managing device information extracted from BACnet packets.
 
 from typing import Dict, Optional, Tuple
 
-from bacpypes3.basetypes import Address
 
 from .models import DeviceInfo
-from .packet_processors import extract_device_info, extract_network_and_mac
 
 
 def get_device_key(network: Optional[int], mac: Optional[str], source_addr: str) -> Tuple[str, str]:

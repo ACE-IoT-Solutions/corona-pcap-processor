@@ -6,11 +6,11 @@ This module works with the functional BACnetAnalyzer implementation.
 
 import datetime
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from rdflib import RDF, RDFS, XSD, Graph, Literal, Namespace, URIRef
+from rdflib import RDF, RDFS, XSD, Graph, Literal, Namespace
 
-from .models import AddressStats, AnalysisResults, DeviceInfo
+from .models import AddressStats, AnalysisResults
 
 
 class CoronaMetricsGenerator:

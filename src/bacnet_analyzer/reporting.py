@@ -2,7 +2,7 @@
 Reporting functions for BACnet PCAP Analyzer.
 """
 
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from .models import AddressStats, AnalysisResults, DeviceInfo
 

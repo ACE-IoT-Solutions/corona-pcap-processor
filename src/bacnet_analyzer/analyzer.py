@@ -3,19 +3,15 @@ Main BACnet PCAP Analyzer implementation.
 """
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple
 
-from bacpypes3.analysis import decode_file, decode_packet, settings
-from bacpypes3.apdu import apdu_types
-from bacpypes3.basetypes import Address
+from bacpypes3.analysis import decode_file, settings
 
-from .constants import SERVICE_CHOICE_TO_TYPE, ServiceChoice, ServiceChoiceMapping
+from .constants import ServiceChoice, ServiceChoiceMapping
 from .debug_utils import debug_frame
 from .device_catalog import add_device_to_catalog, get_device_key
-from .models import AddressStats, AnalysisResults, DeviceInfo
+from .models import AnalysisResults
 from .packet_processors import (
     extract_apdu_type,
-    extract_device_id,
     extract_device_info,
     extract_frame_timestamp,
     extract_network_and_mac,

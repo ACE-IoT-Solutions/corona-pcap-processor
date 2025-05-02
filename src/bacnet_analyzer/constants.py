@@ -5,7 +5,6 @@ Constants and configuration for BACnet PCAP Analyzer.
 from enum import Enum
 from typing import Dict, Final, Set
 
-from bacpypes3.apdu import apdu_types
 
 
 class ServiceChoice(Enum):

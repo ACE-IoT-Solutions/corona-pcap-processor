@@ -2,9 +2,8 @@
 Debugging utilities for BACnet PCAP Analyzer.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
-from .packet_processors import extract_source_dest_addresses
 
 
 def debug_frame(frame: Any, debug_level: int = 1) -> List[str]:
