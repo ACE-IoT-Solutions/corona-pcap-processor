@@ -10,7 +10,7 @@ authors = [
 ]
 dependencies = [
     "python-libpcap>=0.5.2",
-    "bacpypes3>=0.2.8",
+    "bacpypes3>=0.0.102",
     "rdflib>=6.3.2",
 ]
 
