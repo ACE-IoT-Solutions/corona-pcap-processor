@@ -47,7 +47,7 @@ select = ["E", "F", "UP", "I", "N", "W", "C90"]
 ignore = ["E203", "E501"]
 
 [tool.ruff.isort]
-known-first-party = ["corona_metrics", "main", "bacnet_pcap_analyzer"]
+known-first-party = ["bacnet_analyzer"]
 
 [tool.black]
 line-length = 100
