@@ -1,169 +1,160 @@
-# Corona BACnet PCAP Processor
+# BACnet PCAP Processor with Corona Metrics
 
-[![CI](https://github.com/aceiot/corona-pcap-processor/actions/workflows/ci.yml/badge.svg)](https://github.com/aceiot/corona-pcap-processor/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/aceiot/corona-pcap-processor/branch/main/graph/badge.svg)](https://codecov.io/gh/aceiot/corona-pcap-processor)
-
-A Python tool for analyzing BACnet network traffic from PCAP files and generating Corona-compatible metrics.
+A toolkit for analyzing BACnet packet captures (PCAP files), processing message types, extracting device information, and generating Corona-compatible metrics.
 
 ## Features
 
-- Processes PCAP files containing BACnet traffic
-- Discovers BACnet devices through I-Am messages
-- Identifies BACnet/IP, MS/TP and remote network devices
-- Detects forwarded messages from BACnet routers and BBMDs
-- Aggregates statistics per BACnet address
-  - Total packet count
-  - Message type distribution
-  - Routed vs. non-routed messages
-  - Unicast vs. broadcast messages
-  - Forwarded packet counts
-- Maintains a comprehensive device cache with network addressing information
-- Generates Corona-compatible metrics in Turtle (.ttl) RDF format
+- Analyzes BACnet packet captures (.pcap files)
+- Detects and classifies message types by service choice
+- Extracts device information from I-Am messages
+- Handles both direct BACnet/IP messages and forwarded NPDUs
+- Supports MS/TP devices through router forwarding
+- Generates detailed traffic statistics and device reports
+- Generates Corona-compatible metrics in TTL (Turtle) format
+- Validates metrics against the Corona standard
 
-## Components
+## Project Structure
 
-### Main PCAP Analyzer (`main.py`)
+The main components of the project are:
 
-The main analyzer processes PCAP files containing BACnet traffic:
+- `bacnet_analyzer/` - Refactored functional implementation
+  - `analyzer.py` - Main PCAP analyzer implementation
+  - `corona_metrics.py` - Corona metrics generator
+  - `models.py` - Data models for analysis results
+  - `constants.py` - Constants for BACnet message types
+  - `packet_processors.py` - Functions for processing BACnet packets
+  - `device_catalog.py` - Device discovery and management
+  - `stats_collector.py` - Statistics collection
+  - `reporting.py` - Report generation
+  - `debug_utils.py` - Debug utilities
 
-```bash
-python main.py <pcap_file> [--debug]
-```
+- `tests/` - Test suite
+  - `test_metrics.py` - Tests for the metrics generator
+  - `test_pcap_processor.py` - Tests for the PCAP processor
+  - `validate_metrics.py` - Utility for validating metrics files
 
-### Corona Metrics Generator
-
-Generates Corona-compatible metrics from the PCAP analysis using the rdflib library:
-
-```bash
-# Using the convenience wrapper script
-./corona-metrics <pcap_file> <output_ttl_file> [--capture-device=<address>] [--debug]
-
-# Or directly with the module
-python corona_metrics.py <pcap_file> <output_ttl_file> [--capture-device=<address>] [--debug]
-```
-
-### Testing
-
-Run the test suite to verify functionality:
-
-```bash
-# Run all tests
-python -m pytest tests/
-
-# Run specific test file
-python -m pytest tests/test_metrics.py
-
-# Run a specific test
-python -m pytest tests/test_metrics.py::TestSpecificPcapContent::test_whohas_ihave_support
-```
-
-### Project Structure
-
-```
-corona-pcap-processor/
-├── main.py                  # Main BACnet PCAP analyzer
-├── corona_metrics.py        # Metrics generator using rdflib
-├── corona-metrics           # Convenience wrapper script
-├── tests/                   # Test suite directory
-│   ├── __init__.py          # Package marker
-│   ├── test_metrics.py      # Tests for metrics generator
-│   ├── test_pcap_processor.py # Tests for PCAP processor
-│   └── validate_metrics.py  # Utility to validate metrics against Corona standard
-├── pcaps/                   # Sample PCAP files
-├── *.pcap, *.pcap.gz        # Various sample PCAP files for testing
-└── *.bak                    # Backup files (older implementations)
-
-## Requirements
-
-- Python 3.13+
-- bacpypes3
-- python-libpcap
-- rdflib
-- pytest (for running tests)
+- `corona-standard/` - Corona standard reference
+  - `README.md` - Documentation for the Corona standard
+  - `validate_model.py` - Tool for validating metrics against the standard
+  - `example.ttl` - Example metrics file
 
 ## Installation
 
+No installation required, just clone the repository and ensure you have the required dependencies:
+
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/corona-pcap-processor.git
-cd corona-pcap-processor
-
-# Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# or
-.venv\Scripts\activate     # Windows
-
-# Install dependencies
-pip install -e .
+pip install bacpypes3 rdflib
 ```
 
 ## Usage
 
+### Analyzing PCAP Files
+
+```python
+from bacnet_analyzer import BACnetAnalyzer
+
+# Create an analyzer instance (with optional debug mode)
+analyzer = BACnetAnalyzer(debug=False, debug_level=1)
+
+# Analyze a PCAP file
+results = analyzer.analyze_pcap("sample-pcap.pcap")
+
+# Print a summary of the analysis
+analyzer.print_summary(results)
+```
+
+### Generating Corona Metrics
+
+```python
+from bacnet_analyzer import BACnetAnalyzer
+from bacnet_analyzer.corona_metrics import CoronaMetricsGenerator
+
+# Analyze a PCAP file
+analyzer = BACnetAnalyzer()
+results = analyzer.analyze_pcap("sample-pcap.pcap")
+
+# Generate metrics (optionally with a capture device address)
+metrics_gen = CoronaMetricsGenerator(results, capture_device="10.0.0.1")
+metrics_gen.generate_metrics()
+
+# Export to TTL format
+metrics_gen.export_ttl("metrics.ttl")
+```
+
+### Using the Command-Line Tools
+
+#### Validate Metrics
+
 ```bash
-# Basic usage
-python main.py <pcap_file>
+# Validate a metrics file
+python tests/validate_metrics.py validate metrics.ttl
 
-# Enable debug mode for detailed packet inspection
-python main.py <pcap_file> --debug
+# Validate with analysis
+python tests/validate_metrics.py validate metrics.ttl --analyze
 ```
 
-## Sample Output
+#### Process PCAP and Generate Metrics
 
-```
-=== BACnet Traffic Analysis ===
+```bash
+# Process a PCAP file and generate metrics
+python tests/validate_metrics.py process sample-pcap.pcap --output metrics.ttl
 
-Address Statistics:
+# Process with capture device
+python tests/validate_metrics.py process sample-pcap.pcap --output metrics.ttl --capture-device 10.0.0.1
 
-  10.21.52.12:
-    Total Packets: 1347
-    Message Types: {'BACnet/IP': 449, 'OriginalUnicastNPDU': 449, 'ReadPropertyACK': 449}
-    Routed: 0, Non-Routed: 1347
-    Unicast: 1347, Broadcast: 0
-
-  10.21.86.4:
-    Total Packets: 3460
-    Message Types: {'BACnet/IP': 1730, 'ForwardedNPDU': 1730}
-    Routed: 1730, Non-Routed: 1730
-    Unicast: 3460, Broadcast: 0
-    Forwarded Packets: 1730
-
-=== Discovered BACnet Devices ===
-
-  Device ID: 389001
-    Address: BACnet/IP 10.0.1.47
-    Properties: Vendor ID: 15, Max APDU: 1476, Segmentation: segmentedBoth
-
-  Device ID: 450001
-    Address: BACnet Network 5:0a1547c8
-    Properties: Vendor ID: 8, Max APDU: 1024, Segmentation: segmentedBoth
-
-  Device ID: 123456
-    Address: BACnet MS/TP 5:01
-    Properties: Vendor ID: 10, Max APDU: 480
-    ---
-    Address: Forwarded via 10.21.86.4
-    Properties: Vendor ID: 10, Max APDU: 480
-    Summary: 1 BACnet/IP, 1 remote network instances of this device
+# Process, generate metrics, and validate in one step
+python tests/validate_metrics.py process sample-pcap.pcap --analyze
 ```
 
-## Recent Improvements
+## BACnet Message Detection
 
-The codebase has been substantially improved with the following changes:
+The analyzer detects BACnet message types in two ways:
 
-- Refactored metrics generation to use `rdflib` instead of string manipulation
-- Improved metric naming with sender-focused naming convention for clarity
-- Added support for WhoHas/IHave BACnet message types
-- Restructured the project with a dedicated tests directory
-- Enhanced test coverage with comprehensive test cases
-- Optimized MS/TP device detection and address handling
+1. **Class-based detection**: Looks at the APDU class names
+2. **Service choice-based detection**: Uses the `apduService` attribute:
+   - Service Choice 0: "IAmRequest"
+   - Service Choice 1: "IHaveRequest"
+   - Service Choice 7: "WhoHasRequest" 
+   - Service Choice 8: "WhoIsRequest"
+
+## Corona Metrics
+
+The package can generate metrics in a format compatible with the Corona standard, which is useful for:
+
+- Tracking device behavior and performance
+- Measuring network traffic patterns
+- Analyzing broadcast and routed traffic
+- Identifying device types and communication patterns
+
+Metrics are generated in Turtle (.ttl) format, using RDF triples. These metrics cover:
+
+- Network interface metrics (broadcasts, unicasts, etc.)
+- Application-level metrics (requests, responses by type)
+- Router-specific metrics (forwarded messages, etc.)
+- Device identification information
+
+See the `corona-standard/README.md` file for details on the standard.
 
 ## Architecture
 
-- Uses `bacpypes3.analysis.decode_file` to parse PCAP files
-- Extracts BACnet messages, including forwarded NPDUs
-- Identifies devices through I-Am announcements with address resolution
-- Distinguishes between direct BACnet/IP and remote MS/TP devices
-- Maintains statistics per BACnet address (both IP and network addresses)
-- Supports debug mode for detailed packet inspection
+The analyzer follows a functional architecture with the following components:
 
+### Design Principles
+
+1. **Immutable data structures**: Uses immutable or copied structures
+2. **Pure functions**: Functions with explicit inputs and outputs
+3. **Separation of concerns**: Each module has a single responsibility
+4. **No hidden state**: All state changes are explicit
+5. **Type safety**: Comprehensive type hints
+
+## Debugging Utilities
+
+Several debugging utilities are provided to help with packet inspection:
+
+- `debug_pcap.py`: General packet inspection
+- `find_whohas.py`: Specifically looks for WHO-HAS messages
+- `process_whohas.py`: Enhanced analyzer for WHO-HAS processing
+
+## License
+
+This project is licensed under the MIT License.

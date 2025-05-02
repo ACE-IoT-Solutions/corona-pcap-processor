@@ -127,6 +127,29 @@ class BACnetPcapAnalyzer:
                             apdu_type = type(apdu).__name__
                             # Add the APDU type to the statistics
                             self._update_stats(original_src, apdu_type, destination)
+                            
+                            # Check for service choice and add separate entry
+                            if hasattr(apdu, 'apduService'):
+                                service_choice = apdu.apduService
+                                
+                                # Map service choice to a standard message type name
+                                service_type_mapping = {
+                                    0: "IAmRequest",
+                                    1: "IHaveRequest",  # IHave service
+                                    7: "WhoHasRequest", # WhoHas service
+                                    8: "WhoIsRequest"
+                                }
+                                
+                                # If we have a recognized service choice, add it as a separate entry
+                                if service_choice in service_type_mapping:
+                                    service_type = service_type_mapping[service_choice]
+                                    
+                                    # Only add if it's different from the original class name
+                                    # to avoid double counting
+                                    if service_type != apdu_type:
+                                        if self.debug:
+                                            print(f"Adding service type {service_type} (choice {service_choice}) for {apdu_type} in NPDU")
+                                        self._update_stats(original_src, service_type, destination)
 
                             if apdu_type == "IAmRequest":
                                 # Process with our new method to extract network/MAC address
@@ -201,8 +224,8 @@ class BACnetPcapAnalyzer:
             # Check if NPDU contains an APDU
             if hasattr(npdu, "apdu") and npdu.apdu:
                 apdu = npdu.apdu
-                apdu_type = type(apdu).__name__
-
+               
+               
                 # Create a unique source identifier for stats if we have network and MAC
                 actual_source = None
                 if network is not None and mac is not None:
@@ -210,10 +233,60 @@ class BACnetPcapAnalyzer:
                     # Update statistics for the actual device, not just the router
                     self._update_stats(actual_source, apdu_type, destination)
                     source_stats_updated = True
+                    self._update_stats(actual_source, type(apdu).__name__, destination)
+                    
+                    # Check for service choice and add separate entry
+                    if hasattr(apdu, 'apduService'):
+                        service_choice = apdu.apduService
+                        
+                        # Map service choice to a standard message type name
+                        service_type_mapping = {
+                            0: "IAmRequest",
+                            1: "IHaveRequest",  # IHave service
+                            7: "WhoHasRequest", # WhoHas service
+                            8: "WhoIsRequest"
+                        }
+                        
+                        # If we have a recognized service choice, add it as a separate entry
+                        if service_choice in service_type_mapping:
+                            service_type = service_type_mapping[service_choice]
+                            
+                            # Only add if it's different from the original class name
+                            # to avoid double counting
+                            if service_type != apdu_type:
+                                if self.debug:
+                                    print(f"Adding service type {service_type} (choice {service_choice}) for {apdu_type}")
+                                    # For WhoHas or IHave, print detailed info for debugging
+                                    if service_choice in [1, 7]:
+                                        svc_name = "WhoHas" if service_choice == 7 else "IHave"
+                                        print(f"Found {svc_name} message (service {service_choice}) from {actual_source}")
+                                        
+                                self._update_stats(actual_source, service_type, destination)
 
                 # Also update router stats
                 if not source_stats_updated:
                     self._update_stats(original_src, apdu_type, destination)
+                    
+                    # Check for service choice and add separate entry
+                    if hasattr(apdu, 'apduService'):
+                        service_choice = apdu.apduService
+                        print(service_choice)
+                        
+                        # If we have a recognized service choice, add it as a separate entry
+                        if service_choice in service_type_mapping:
+                            service_type = service_type_mapping[service_choice]
+                            
+                            # Only add if it's different from the original class name
+                            # to avoid double counting
+                            if service_type != apdu_type:
+                                if self.debug:
+                                    print(f"Adding service type {service_type} (choice {service_choice}) for {apdu_type}")
+                                    # For WhoHas or IHave, print detailed info for debugging
+                                    if service_choice in [1, 7]:
+                                        svc_name = "WhoHas" if service_choice == 7 else "IHave"
+                                        print(f"Found {svc_name} message (service {service_choice}) from {original_src}")
+                                
+                                self._update_stats(original_src, service_type, destination)
 
                 # Process I-Am messages - this path is kept for backward compatibility
                 # Note: The main _process_packet method now handles IAmRequest directly
@@ -298,9 +371,45 @@ class BACnetPcapAnalyzer:
     def _process_apdu(self, apdu, source, destination, pkt_time, npdu=None):
         """Process a BACnet Application Protocol Data Unit (APDU)."""
         apdu_type = type(apdu).__name__
+        print(apdu_type)
 
-        # Update statistics
+        # Update statistics based on class name
         self._update_stats(source, apdu_type, destination)
+        
+        # Check for service choice and add additional entry based on service choice
+        # This ensures we capture both the class name and the service type
+        if hasattr(apdu, 'apduService'):
+            service_choice = apdu.apduService
+            
+            # Map service choice to a standard message type name
+            service_type_mapping = {
+                0: "IAmRequest",
+                1: "IHaveRequest",  # IHave service
+                7: "WhoHasRequest", # WhoHas service
+                8: "WhoIsRequest"
+            }
+            
+            # If we have a recognized service choice, add it as a separate entry
+            if service_choice in service_type_mapping:
+                service_type = service_type_mapping[service_choice]
+                
+                # Only add if it's different from the original class name
+                # to avoid double counting
+                if service_type != apdu_type:
+                    if self.debug:
+                        print(f"Adding service type {service_type} (choice {service_choice}) for {apdu_type}")
+                    self._update_stats(source, service_type, destination)
+                    
+                    # For WhoHas, print detailed info for debugging
+                    if service_choice == 7 and self.debug:
+                        print(f"Found WhoHas message (service 7) in {apdu_type} from {source}")
+                        for attr in dir(apdu):
+                            if not attr.startswith('_') and not callable(getattr(apdu, attr)):
+                                try:
+                                    value = getattr(apdu, attr)
+                                    print(f"  {attr} = {value}")
+                                except:
+                                    pass
 
         if self.debug:
             print(f"Processing {apdu_type} from {source} to {destination}")
