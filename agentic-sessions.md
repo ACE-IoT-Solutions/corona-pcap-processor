@@ -1,5 +1,228 @@
 # Corona PCAP Processor Agentic Sessions
 
+## Session 5: WHO-HAS Support and Metrics Validation
+
+### Summary
+In this session, we enhanced the Corona PCAP Processor with several crucial improvements:
+
+1. **Complete Refactoring to Functional Architecture**
+   - Migrated the codebase to a clean package structure in `bacnet_analyzer/`
+   - Implemented immutable data structures with pure functions
+   - Separated concerns into distinct modules with clear interfaces
+   - Added comprehensive type hints for better type safety
+   - Reduced code complexity through functional programming patterns
+
+2. **WHO-HAS and I-HAVE Message Support**
+   - Added detection and metrics for WHO-HAS and I-HAVE BACnet messages
+   - Properly accounted for broadcast vs. directed requests
+   - Ensured metrics capture these service types correctly
+
+3. **Metrics Validation System**
+   - Created a robust `validate_metrics.py` script with two commands:
+     - `validate`: Validates existing TTL metrics files
+     - `process`: Processes PCAP files to generate and validate metrics
+   - Implemented proper error handling and status reporting
+   - Added support for detailed metrics analysis
+
+4. **Corona Standard Reference Implementation**
+   - Created a `corona-standard` directory with standard documentation
+   - Added `validate_model.py` script for metrics validation
+   - Provided example TTL file demonstrating standard-compliant metrics
+
+### Key Changes
+
+#### Functional Refactoring
+We reorganized the entire codebase into a modular package structure:
+
+```python
+# Core analyzer implementation with immutable state handling
+def analyze_pcap(self, filepath: str) -> AnalysisResults:
+    """Analyze a PCAP file and extract BACnet information."""
+    # Initialize empty results
+    results = AnalysisResults()
+    
+    # Process each frame in the PCAP file
+    for frame in decode_file(filepath):
+        # Process the frame and update results
+        results = self._process_frame(frame, results)
+    
+    return results
+
+def _process_frame(self, frame: any, results: AnalysisResults) -> AnalysisResults:
+    """Process a BACnet frame and update the analysis results."""
+    # Create mutable copies of the result collections for updating
+    address_stats = results.address_stats.copy()
+    device_cache = results.device_cache.copy()
+    
+    # Process the frame and update stats
+    # ...
+    
+    # Create updated results
+    updated_results = AnalysisResults(
+        address_stats=address_stats,
+        device_cache=device_cache,
+    )
+    
+    return updated_results
+```
+
+#### Metrics Validation Tool
+
+We created a comprehensive validation tool with a clean command-line interface:
+
+```python
+def main():
+    parser = argparse.ArgumentParser(
+        description="Validate Corona metrics files against the Corona standard."
+    )
+    
+    # Create subparsers for different commands
+    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    
+    # Validate command
+    validate_parser = subparsers.add_parser("validate", help="Validate a metrics file")
+    validate_parser.add_argument(
+        "metrics_file", help="The metrics file to validate (TTL format)"
+    )
+    validate_parser.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Analyze the metrics file and print statistics",
+    )
+    # ...
+    
+    # Process command
+    process_parser = subparsers.add_parser(
+        "process", 
+        help="Process a PCAP file, generate metrics, and validate them"
+    )
+    process_parser.add_argument(
+        "pcap_file", help="The PCAP file to process"
+    )
+    # ...
+```
+
+#### WHO-HAS Support
+
+Extended the corona_metrics.py implementation to properly handle WHO-HAS and I-HAVE messages:
+
+```python
+# Handle WhoHas/IHave requests
+if "WhoHasRequest" in stats.message_types:
+    count = stats.message_types["WhoHasRequest"]
+    device_metrics["whoHasRequestsSent"] += count
+    device_metrics["globalWhoHasRequestsSent"] += count
+    total_requests += count
+
+if "IHaveRequest" in stats.message_types:
+    count = stats.message_types["IHaveRequest"]
+    device_metrics["iHaveResponsesSent"] += count
+    total_responses += count
+```
+
+#### Corona Standard Documentation
+
+Created comprehensive Corona standard documentation with examples:
+
+```markdown
+## Key Metrics
+
+### Network Interface Metrics
+
+- `packetsReceived` - Total packets observed from this device
+- `totalBacnetMessagesSent` - Total BACnet messages sent by this device
+- `broadcastPacketsSent` - Broadcast packets sent by this device
+- `totalBroadcastsSent` - Total broadcast messages sent by this device
+- `globalBroadcastMessageCount` - Count of global broadcasts from this device
+
+### Application Metrics
+
+- `whoIsRequestsSent` - WhoIs requests sent by this device
+- `globalWhoIsRequestsSent` - Global WhoIs requests sent by this device
+- `directedWhoIsRequestsSent` - Directed WhoIs requests sent by this device
+- `iAmResponsesSent` - IAm responses sent by this device
+- `whoHasRequestsSent` - WhoHas requests sent by this device
+- `globalWhoHasRequestsSent` - Global WhoHas requests sent by this device
+- `directedWhoHasRequestsSent` - Directed WhoHas requests sent by this device
+- `iHaveResponsesSent` - IHave responses sent by this device
+```
+
+### Benefits
+
+1. **Improved Maintainability**: The functional architecture ensures clear data flow and immutability
+2. **Enhanced Type Safety**: Comprehensive type hints prevent runtime errors
+3. **Better Testing**: Separation of concerns makes unit testing more effective
+4. **Robust Validation**: Users can now validate metrics against standards easily
+5. **Complete WHO-HAS Support**: The analyzer now handles all common BACnet discovery protocols
+6. **Developer-Friendly**: Clean interfaces make it easier for new developers to contribute
+
+### Implementation Details
+
+#### Data Models and Immutability
+
+We used frozen dataclasses to enforce immutability:
+
+```python
+@dataclass(frozen=True)
+class AnalysisResults:
+    """Results of analyzing a BACnet PCAP file."""
+    address_stats: Dict[str, AddressStats] = field(default_factory=dict)
+    device_cache: Dict[str, DeviceInfo] = field(default_factory=dict)
+```
+
+#### Service Choice Handling
+
+Added explicit mapping from service choices to message types:
+
+```python
+class ServiceChoice(Enum):
+    """BACnet service choices."""
+    I_AM = 0
+    I_HAVE = 1
+    WHO_HAS = 7
+    WHO_IS = 8
+
+SERVICE_CHOICE_TO_TYPE: Final[Dict[int, str]] = {
+    ServiceChoice.I_AM.value: "IAmRequest",
+    ServiceChoice.I_HAVE.value: "IHaveRequest",
+    ServiceChoice.WHO_HAS.value: "WhoHasRequest",
+    ServiceChoice.WHO_IS.value: "WhoIsRequest",
+}
+```
+
+#### RDF Export Improvements
+
+Enhanced the TTL export functionality with proper header comments:
+
+```python
+def export_ttl(self, output_file: str) -> None:
+    """Export the metrics in Corona-compatible Turtle (.ttl) format."""
+    # Add a header comment with timestamp
+    header = f"""# Corona BACnet metrics generated from PCAP analysis
+# Generated on: {datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+
+# BACnet devices and properties use the bacnet: namespace
+# Metrics and other Corona-specific properties use the corona: namespace
+"""
+
+    # Serialize the graph to Turtle format
+    ttl_data = self.graph.serialize(format="turtle")
+
+    # Write to file with header
+    with open(output_file, "w") as f:
+        f.write(header)
+        f.write(ttl_data)
+```
+
+### Future Improvements
+
+1. **Performance Optimization**: Further optimize packet processing for large PCAP files
+2. **Additional Metrics**: Add more detailed metrics for other BACnet service types
+3. **Visualization**: Add graphical visualization of the metrics data
+4. **Integration**: Add integration with BACnet monitoring tools
+5. **Real-Time Processing**: Add support for real-time packet processing
+6. **Packaging**: Implement proper Python package structure for distribution
+
 ## Session 4: CI/CD and Repository Setup
 
 ### Summary
