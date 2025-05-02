@@ -545,6 +545,283 @@ class TestCaptureDeviceSupport:
                 os.unlink(tmp_path)
 
 
+class TestHaystackExport:
+    """Test the Haystack export formats."""
+
+    @pytest.fixture
+    def metrics_generator(self):
+        """Fixture to generate metrics for testing."""
+        # Set up the analyzer
+        analyzer = BACnetAnalyzer()
+        results = analyzer.analyze_pcap("SampleWhoisIamForwardedBroadcast.pcap")
+
+        # Set up the metrics generator
+        metrics_gen = CoronaMetricsGenerator(results)
+        metrics_gen.generate_metrics()
+
+        # Return the generator
+        return metrics_gen
+
+    def test_haystack_zinc_export(self, metrics_generator):
+        """Test that Haystack Zinc export works correctly."""
+        metrics_gen = metrics_generator
+
+        # Export to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".zinc", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            metrics_gen.export_haystack_zinc(tmp_path)
+
+            # Check that the file was created and is not empty
+            assert os.path.exists(tmp_path), "Zinc file was not created"
+            assert os.path.getsize(tmp_path) > 0, "Zinc file is empty"
+
+            # Read the content and check structure
+            with open(tmp_path, "r") as f:
+                content = f.read()
+                
+                # Basic checks for expected structure
+                assert 'ver:"3.0"' in content, "No version marker in Zinc file"
+                assert "database:" in content, "No database marker in Zinc file"
+                assert "dis:" in content, "No dis marker in Zinc file"
+                assert "metric" in content, "No metric column in Zinc file"
+                assert "val" in content, "No val column in Zinc file"
+                
+                # Check for row data
+                lines = content.split("\n")
+                assert len(lines) > 2, "No data rows in Zinc file"
+                
+                # Check for reference markers (@)
+                has_references = False
+                for line in lines[1:]:  # Skip header
+                    if line.strip() and line.strip()[0] == "@":
+                        has_references = True
+                        break
+                assert has_references, "No reference markers in Zinc file"
+                
+                # Look for metric values
+                metrics_found = 0
+                for expected_metric in ["totalBacnetMessagesSent", "packetsReceived", "whoIsRequestsSent"]:
+                    if f'metric:"{expected_metric}"' in content:
+                        metrics_found += 1
+                assert metrics_found > 0, "No expected metrics found in Zinc file"
+
+        finally:
+            # Clean up
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+    def test_haystack_json_export(self, metrics_generator):
+        """Test that Haystack JSON export works correctly."""
+        metrics_gen = metrics_generator
+
+        # Export to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            metrics_gen.export_haystack_json(tmp_path)
+
+            # Check that the file was created and is not empty
+            assert os.path.exists(tmp_path), "JSON file was not created"
+            assert os.path.getsize(tmp_path) > 0, "JSON file is empty"
+
+            # Parse the JSON content
+            import json
+            with open(tmp_path, "r") as f:
+                data = json.load(f)
+                
+                # Check basic structure
+                assert "meta" in data, "No 'meta' section in JSON file"
+                assert "cols" in data, "No 'cols' section in JSON file"
+                assert "rows" in data, "No 'rows' section in JSON file"
+                
+                # Check metadata
+                assert data["meta"]["ver"] == "3.0", "Incorrect version in JSON metadata"
+                assert "database" in data["meta"], "No database in JSON metadata"
+                assert "dis" in data["meta"], "No 'dis' in JSON metadata"
+                
+                # Check columns
+                column_names = [col["name"] for col in data["cols"]]
+                assert "id" in column_names, "No 'id' column defined"
+                assert "device" in column_names, "No 'device' column defined"
+                assert "metric" in column_names, "No 'metric' column defined"
+                assert "val" in column_names, "No 'val' column defined"
+                
+                # Check rows
+                assert len(data["rows"]) > 0, "No rows in JSON data"
+                
+                # Check for specific metrics
+                metrics_found = 0
+                for row in data["rows"]:
+                    if row["metric"] in ["totalBacnetMessagesSent", "packetsReceived", "whoIsRequestsSent"]:
+                        metrics_found += 1
+                        # Check that each metric row has the required structure
+                        assert "id" in row, "Row missing 'id' field"
+                        assert "_kind" in row["id"], "Reference ID missing '_kind' field"
+                        assert row["id"]["_kind"] == "ref", "ID is not a reference type"
+                        assert "device" in row, "Row missing 'device' field"
+                        assert row["device"]["_kind"] == "marker", "Device is not a marker"
+                        assert "val" in row, "Row missing 'val' field"
+                
+                assert metrics_found > 0, "No expected metrics found in JSON data"
+
+        finally:
+            # Clean up
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+    def test_empty_results_haystack_export(self):
+        """Test that Haystack exports can handle empty analysis results."""
+        # Create empty analysis results
+        empty_results = AnalysisResults()
+
+        # Create metrics generator with empty results
+        metrics_gen = CoronaMetricsGenerator(empty_results)
+        metrics_gen.generate_metrics()
+
+        # Test Zinc export
+        with tempfile.NamedTemporaryFile(suffix=".zinc", delete=False) as tmp:
+            zinc_path = tmp.name
+
+        # Test JSON export
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+            json_path = tmp.name
+
+        try:
+            # Export should not raise exceptions
+            metrics_gen.export_haystack_zinc(zinc_path)
+            metrics_gen.export_haystack_json(json_path)
+
+            # Verify files exist and have basic content
+            assert os.path.exists(zinc_path), "Zinc file was not created"
+            assert os.path.getsize(zinc_path) > 0, "Zinc file is completely empty"
+            
+            assert os.path.exists(json_path), "JSON file was not created"
+            assert os.path.getsize(json_path) > 0, "JSON file is completely empty"
+            
+            # Parse JSON to verify it's valid
+            import json
+            with open(json_path, "r") as f:
+                data = json.load(f)
+                assert "meta" in data, "JSON missing 'meta' section"
+                assert "cols" in data, "JSON missing 'cols' section"
+                assert "rows" in data, "JSON missing 'rows' section"
+                # Empty results should have an empty rows array
+                assert isinstance(data["rows"], list), "JSON 'rows' is not a list"
+
+        finally:
+            # Clean up
+            for path in [zinc_path, json_path]:
+                if os.path.exists(path):
+                    os.unlink(path)
+
+
+class TestPrometheusExport:
+    """Test the Prometheus export format."""
+
+    @pytest.fixture
+    def metrics_generator(self):
+        """Fixture to generate metrics for testing."""
+        # Set up the analyzer
+        analyzer = BACnetAnalyzer()
+        results = analyzer.analyze_pcap("SampleWhoisIamForwardedBroadcast.pcap")
+
+        # Set up the metrics generator
+        metrics_gen = CoronaMetricsGenerator(results)
+        metrics_gen.generate_metrics()
+
+        # Return the generator
+        return metrics_gen
+        
+    def test_prometheus_export(self, metrics_generator):
+        """Test that Prometheus export works correctly."""
+        metrics_gen = metrics_generator
+
+        # Export to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".prom", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            metrics_gen.export_prometheus(tmp_path)
+
+            # Check that the file was created and is not empty
+            assert os.path.exists(tmp_path), "Prometheus file was not created"
+            assert os.path.getsize(tmp_path) > 0, "Prometheus file is empty"
+
+            # Read the content and check structure
+            with open(tmp_path, "r") as f:
+                content = f.read()
+                
+                # Check for Prometheus format elements
+                assert content.startswith("#"), "Prometheus file should start with comments"
+                assert "# HELP" in content, "No HELP comments in Prometheus file"
+                assert "# TYPE" in content, "No TYPE comments in Prometheus file"
+                
+                # Check for OpenTelemetry prefix
+                assert "bacnet_" in content, "No bacnet prefix in metrics"
+                
+                # Check for counter metrics
+                assert "# TYPE bacnet_" in content and " counter" in content, "No counter metrics defined"
+                
+                # Check for labels
+                assert "{" in content, "No labels found in metrics"
+                assert 'address="' in content, "No address label in metrics"
+                
+                # Check for specific metric types (choose a few representative ones)
+                expected_metrics = [
+                    "bacnet_packets_total",
+                    "bacnet_messages_sent_total",
+                    "bacnet_whois_requests_total"
+                ]
+                
+                metrics_found = 0
+                for metric in expected_metrics:
+                    if metric in content:
+                        metrics_found += 1
+                
+                assert metrics_found > 0, "No expected metrics found in Prometheus file"
+
+        finally:
+            # Clean up
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+    def test_empty_results_prometheus_export(self):
+        """Test that Prometheus export can handle empty analysis results."""
+        # Create empty analysis results
+        empty_results = AnalysisResults()
+
+        # Create metrics generator with empty results
+        metrics_gen = CoronaMetricsGenerator(empty_results)
+        metrics_gen.generate_metrics()
+
+        # Export to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".prom", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            # Export should not raise exceptions
+            metrics_gen.export_prometheus(tmp_path)
+
+            # Verify the file exists and has basic content
+            assert os.path.exists(tmp_path), "Prometheus file was not created"
+            assert os.path.getsize(tmp_path) > 0, "Prometheus file is completely empty"
+            
+            # Read the content to verify it has basic structure
+            with open(tmp_path, "r") as f:
+                content = f.read()
+                assert content.startswith("#"), "Prometheus file should start with comments"
+                assert "# HELP" in content, "No HELP comments in Prometheus file"
+                assert "# TYPE" in content, "No TYPE comments in Prometheus file"
+
+        finally:
+            # Clean up
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+
 if __name__ == "__main__":
     # Run the tests directly if this script is executed
     pytest.main(["-xvs", __file__])

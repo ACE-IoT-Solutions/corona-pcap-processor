@@ -1,5 +1,219 @@
 # Corona PCAP Processor Agentic Sessions
 
+## Session 7: Multi-format Metrics Export
+
+### Summary
+In this session, we significantly enhanced the metrics export capabilities, adding support for multiple industry-standard formats:
+
+1. **Project Haystack Export Formats**
+   - Implemented Zinc Grid format export, providing a compact, human-readable tabular representation
+   - Added JSON-encoded Haystack export for programmatic access and integration
+   - Maintained all device information and metrics across formats
+
+2. **Prometheus Export with OpenTelemetry Conventions**
+   - Created a standard Prometheus exposition format exporter
+   - Implemented OpenTelemetry semantic conventions for metric naming and labeling
+   - Properly categorized metrics as counters and gauges
+   - Added comprehensive help text and type information
+
+3. **Command-line Interface Enhancements**
+   - Added format selection option to the CLI (--format)
+   - Implemented automatic file extension handling
+   - Created detailed usage documentation
+
+4. **Comprehensive Testing**
+   - Added unit tests for all export formats
+   - Created CLI tests for format selection
+   - Added tests for empty results handling
+
+### Key Changes
+
+#### Multi-format Export Methods
+
+We added three new export methods to the `CoronaMetricsGenerator` class:
+
+```python
+# Export to Project Haystack Zinc Grid format
+def export_haystack_zinc(self, output_file: str) -> None:
+    """Export the metrics in Project Haystack Zinc Grid format."""
+    # Implementation details...
+
+# Export to Project Haystack JSON format
+def export_haystack_json(self, output_file: str) -> None:
+    """Export the metrics in Project Haystack JSON format."""
+    # Implementation details...
+
+# Export to Prometheus format
+def export_prometheus(self, output_file: str) -> None:
+    """Export the metrics in Prometheus exposition format with OpenTelemetry semantic conventions."""
+    # Implementation details...
+```
+
+#### CLI Format Selection
+
+We enhanced the command-line interface to support format selection:
+
+```python
+class OutputFormat(Enum):
+    """Output format options for metrics."""
+    TTL = "ttl"  # RDF Turtle format
+    ZINC = "zinc"  # Project Haystack Zinc Grid format
+    JSON = "json"  # Project Haystack JSON format
+    PROM = "prom"  # Prometheus exposition format
+    
+# Add format selection to the parser
+parser.add_argument(
+    "--format",
+    type=OutputFormat,
+    choices=list(OutputFormat),
+    default=OutputFormat.TTL,
+    help="Output format: ttl (RDF Turtle), zinc (Haystack Zinc), json (Haystack JSON), or prom (Prometheus)"
+)
+```
+
+#### Prometheus with OpenTelemetry Conventions
+
+For the Prometheus format, we implemented OpenTelemetry naming conventions:
+
+```python
+# Map our metrics to OTel convention metric names
+metric_name_map = {
+    "packetsReceived": "packets_total",
+    "totalBacnetMessagesSent": "messages_sent_total",
+    "whoIsRequestsSent": "whois_requests_total",
+    # More mappings...
+}
+
+# Define metric types
+metric_types = {
+    # Counters
+    "packetsReceived": "counter",
+    # Gauges
+    "routedDevicesSeen": "gauge",
+    # More type mappings...
+}
+```
+
+### Benefits
+
+1. **Improved Integration**: Support for multiple formats allows integration with different systems
+2. **Industry Standards**: Implements two major standards (Haystack and Prometheus/OpenTelemetry)
+3. **Flexible Deployment**: Same data can be used with building automation or cloud monitoring
+4. **Future-proof**: Support for modern observability stacks
+5. **Comprehensive Testing**: Ensures all formats work correctly
+
+### Future Improvements
+
+1. **Real-time Metrics**: Add support for real-time metrics streaming
+2. **Additional Formats**: Consider adding InfluxDB Line Protocol or other time-series formats
+3. **Metric Aggregation**: Add support for aggregating metrics across multiple captures
+4. **Visualization Templates**: Create starter dashboards for Grafana or other tools
+
+## Session 6: Project Structure and Metrics Updates
+
+### Summary
+In this session, we made significant updates to the project structure and fixed issues with metrics generation:
+
+1. **Fixed ReportedBy Relation Issue**
+   - Removed `corona:reportedBy` relation from metrics that shouldn't include it
+   - Maintained proper device/interface relationships via `bacnet:contains` property
+   - Fixed self-referential `reportedBy` in interface-only entries
+
+2. **Modernized Project Structure with src Layout**
+   - Migrated to a proper Python package structure with `src/bacnet_analyzer`
+   - Updated imports and references across the codebase
+   - Updated test configuration and GitHub workflows for new structure
+   - Set up proper package management via pyproject.toml
+   - Made the package fully installable via pip
+
+### Key Changes
+
+#### Removing reportedBy Relation
+
+We removed the `corona:reportedBy` relation from our metrics to ensure compliance with the Corona standard:
+
+```python
+# Old implementation in _add_device_to_graph
+# Add relationship to parent device
+self.graph.add((interface_uri, self.CORONA.reportedBy, device_uri))
+
+# New implementation
+# Relationship to parent device is handled by the BACNET.contains property
+```
+
+For interface-only entries, we also removed the self-referential relationship:
+
+```python
+# Old implementation
+# For interface-only entries, they report themselves
+self.graph.add((interface_uri, self.CORONA.reportedBy, interface_uri))
+
+# New implementation
+# Interface-only entries don't need a reportedBy relation
+```
+
+#### Implementing src Layout
+
+The src-layout pattern ensures proper package isolation and installation, avoiding common Python packaging issues:
+
+```
+project/
+├── src/
+│   └── bacnet_analyzer/
+│       ├── __init__.py
+│       ├── analyzer.py
+│       ├── corona_metrics.py
+│       └── ...
+├── tests/
+│   ├── __init__.py
+│   ├── test_pcap_processor.py
+│   └── ...
+└── pyproject.toml
+```
+
+We updated the package configuration in pyproject.toml:
+
+```toml
+packages = [
+    { include = "bacnet_analyzer", from = "src" },
+]
+```
+
+The pythonpath configuration was updated for tests:
+
+```toml
+[tool.pytest.ini_options]
+pythonpath = [".", "src"]
+```
+
+#### GitHub CI/CD Updates
+
+We updated the GitHub Actions workflow to work with the new structure:
+
+```yaml
+# Updated test command to use the new path structure
+- name: Test with pytest
+  run: |
+    pytest tests/ --cov=src/bacnet_analyzer --cov-report=xml
+```
+
+### Benefits
+
+1. **Improved Package Isolation**: The src-layout ensures that the package runs the same way when installed or in development
+2. **Better Dependency Management**: Explicit package configuration makes dependencies more predictable
+3. **Proper Packaging**: Project can now be properly distributed and installed via pip
+4. **Compliant Metrics**: Removed incorrect relationships from metrics to ensure standard compliance
+5. **Maintainable Structure**: Code organization follows modern Python best practices
+6. **CI/CD Improvements**: GitHub workflows updated to handle the new structure properly
+
+### Future Improvements
+
+1. **Type Hints Completion**: Add complete type hints across all modules
+2. **Command Line Interface**: Add proper CLI entry points using setuptools
+3. **Documentation**: Add API documentation with autobuilding
+4. **Code Coverage**: Improve test coverage for better reliability
+5. **Package Publishing**: Set up automated releases to PyPI
+
 ## Session 5: WHO-HAS Support and Metrics Validation
 
 ### Summary

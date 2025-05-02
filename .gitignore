@@ -39,3 +39,5 @@ ENV/
 
 # macOS specific files
 .DS_Store
+
+**/.claude/settings.local.json

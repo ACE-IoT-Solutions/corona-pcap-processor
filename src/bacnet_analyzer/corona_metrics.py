@@ -708,3 +708,373 @@ class CoronaMetricsGenerator:
         with open(output_file, "w") as f:
             f.write(header)
             f.write(ttl_data)
+            
+    def export_haystack_zinc(self, output_file: str) -> None:
+        """Export the metrics in Project Haystack Zinc Grid format.
+        
+        Args:
+            output_file: The path to write the output file to
+        """
+        # Grid version and metadata
+        timestamp = datetime.datetime.now().isoformat(timespec='seconds')
+        header = f"""ver:"3.0" database:"bacnet" generatedOn:"{timestamp}" dis:"BACnet Corona Metrics"
+id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressType, metric dis:"Metric", val dis:"Value", unit
+"""
+        
+        rows = []
+        
+        # Iterate through all device and interface metrics
+        for device_key, data in self.device_metrics.items():
+            device_info = data["info"]
+            metrics = data["metrics"]
+            
+            # Extract device information
+            device_id = None
+            device_name = None
+            bacnet_address = device_info.bacnet_address if hasattr(device_info, "bacnet_address") else None
+            
+            if isinstance(device_key, int):
+                # This is a device with an ID
+                device_id = device_key
+                device_name = f"BACnet Device {device_id}"
+            else:
+                # This is an interface-only entry
+                if hasattr(device_info, "address"):
+                    bacnet_address = device_info.address
+                elif isinstance(device_info, dict) and "address" in device_info:
+                    bacnet_address = device_info["address"]
+                
+                device_name = f"Interface {bacnet_address}"
+            
+            # Get address components
+            network, mac, address_type, _ = self._get_address_type(bacnet_address)
+            
+            # Map address type to haystack value
+            if address_type == "ip":
+                haystack_address_type = "bacnet-ip"
+            elif address_type == "mstp":
+                haystack_address_type = "ms-tp"
+            else:
+                haystack_address_type = "remote-network"
+            
+            # Generate unique ID for each entity
+            entity_id = f"@{device_key}" if isinstance(device_key, str) else f"@dev-{device_id}"
+            
+            # Add each metric as a separate row
+            for metric_name, value in metrics.items():
+                if value > 0:  # Only include non-zero metrics
+                    rows.append(
+                        f'{entity_id} dis:"{device_name}" device:M deviceId:"{device_id}" '
+                        f'bacnetAddress:"{bacnet_address}" network:"{network}" mac:"{mac}" '
+                        f'addressType:"{haystack_address_type}" metric:"{metric_name}" '
+                        f'val:{value}'
+                    )
+        
+        # Write the file
+        with open(output_file, "w") as f:
+            f.write(header)
+            f.write("\n".join(rows))
+            
+    def export_haystack_json(self, output_file: str) -> None:
+        """Export the metrics in Project Haystack JSON format.
+        
+        Args:
+            output_file: The path to write the output file to
+        """
+        import json
+        
+        # Create the grid structure
+        grid = {
+            "meta": {
+                "ver": "3.0",
+                "database": "bacnet", 
+                "generatedOn": datetime.datetime.now().isoformat(timespec='seconds'),
+                "dis": "BACnet Corona Metrics"
+            },
+            "cols": [
+                {"name": "id", "dis": "ID"},
+                {"name": "dis", "dis": "Device"},
+                {"name": "device"},
+                {"name": "deviceId"},
+                {"name": "bacnetAddress"},
+                {"name": "network"},
+                {"name": "mac"},
+                {"name": "addressType"},
+                {"name": "metric", "dis": "Metric"},
+                {"name": "val", "dis": "Value"},
+                {"name": "unit"}
+            ],
+            "rows": []
+        }
+        
+        # Iterate through all device and interface metrics
+        for device_key, data in self.device_metrics.items():
+            device_info = data["info"]
+            metrics = data["metrics"]
+            
+            # Extract device information
+            device_id = None
+            device_name = None
+            bacnet_address = device_info.bacnet_address if hasattr(device_info, "bacnet_address") else None
+            
+            if isinstance(device_key, int):
+                # This is a device with an ID
+                device_id = device_key
+                device_name = f"BACnet Device {device_id}"
+            else:
+                # This is an interface-only entry
+                if hasattr(device_info, "address"):
+                    bacnet_address = device_info.address
+                elif isinstance(device_info, dict) and "address" in device_info:
+                    bacnet_address = device_info["address"]
+                
+                device_name = f"Interface {bacnet_address}"
+            
+            # Get address components
+            network, mac, address_type, _ = self._get_address_type(bacnet_address)
+            
+            # Map address type to haystack value
+            if address_type == "ip":
+                haystack_address_type = "bacnet-ip"
+            elif address_type == "mstp":
+                haystack_address_type = "ms-tp"
+            else:
+                haystack_address_type = "remote-network"
+            
+            # Generate unique ID for each entity
+            entity_id = f"@{device_key}" if isinstance(device_key, str) else f"@dev-{device_id}"
+            
+            # Add each metric as a separate row
+            for metric_name, value in metrics.items():
+                if value > 0:  # Only include non-zero metrics
+                    grid["rows"].append({
+                        "id": {"_kind": "ref", "val": entity_id[1:]},  # Remove @ for JSON format
+                        "dis": device_name,
+                        "device": {"_kind": "marker"},
+                        "deviceId": str(device_id) if device_id else None,
+                        "bacnetAddress": bacnet_address,
+                        "network": network,
+                        "mac": mac,
+                        "addressType": haystack_address_type,
+                        "metric": metric_name,
+                        "val": value,
+                        "unit": None  # No units for these metrics yet
+                    })
+        
+        # Write the file
+        with open(output_file, "w") as f:
+            json.dump(grid, f, indent=2)
+            
+    def export_prometheus(self, output_file: str) -> None:
+        """Export the metrics in Prometheus exposition format with OpenTelemetry semantic conventions.
+        
+        Args:
+            output_file: The path to write the output file to
+        """
+        # Define metric prefix following OTel conventions
+        prefix = "bacnet"
+        
+        # Define metric type mapping - based on the nature of the metric
+        metric_types = {
+            # Counters (metrics that only increase)
+            "packetsReceived": "counter",
+            "totalBacnetMessagesSent": "counter",
+            "broadcastPacketsSent": "counter",
+            "routedMessagesSent": "counter",
+            "broadcastRelayed": "counter",
+            "messagesRouted": "counter",
+            "messagesForwarded": "counter",
+            "whoIsRequestsSent": "counter",
+            "globalWhoIsRequestsSent": "counter",
+            "directedWhoIsRequestsSent": "counter",
+            "iAmResponsesSent": "counter",
+            "whoHasRequestsSent": "counter", 
+            "globalWhoHasRequestsSent": "counter",
+            "directedWhoHasRequestsSent": "counter",
+            "iHaveResponsesSent": "counter",
+            "readPropertyRequestsSent": "counter",
+            "readPropertyResponsesSent": "counter",
+            "writePropertyRequestsSent": "counter",
+            "writePropertyResponsesSent": "counter",
+            "unconfirmedCOVNotificationsSent": "counter",
+            "confirmedCOVNotificationsSent": "counter",
+            "globalBroadcastMessageCount": "counter",
+            "totalBroadcastsSent": "counter",
+            "totalRequestsSent": "counter",
+            "totalResponsesSent": "counter",
+            
+            # Gauges (metrics that can go up or down)
+            "routedDevicesSeen": "gauge",
+            
+            # Boolean indicators (0 or 1)
+            "mstpDevice": "gauge",
+            "remoteNetworkDevice": "gauge",
+        }
+        
+        # Map our metrics to OTel convention metric names
+        metric_name_map = {
+            "packetsReceived": "packets_total",
+            "totalBacnetMessagesSent": "messages_sent_total",
+            "broadcastPacketsSent": "broadcast_packets_total",
+            "routedMessagesSent": "routed_messages_total",
+            "broadcastRelayed": "broadcast_relayed_total",
+            "messagesRouted": "messages_routed_total",
+            "messagesForwarded": "messages_forwarded_total",
+            "routedDevicesSeen": "routed_devices",
+            "whoIsRequestsSent": "whois_requests_total",
+            "globalWhoIsRequestsSent": "global_whois_requests_total",
+            "directedWhoIsRequestsSent": "directed_whois_requests_total",
+            "iAmResponsesSent": "iam_responses_total",
+            "whoHasRequestsSent": "whohas_requests_total",
+            "globalWhoHasRequestsSent": "global_whohas_requests_total",
+            "directedWhoHasRequestsSent": "directed_whohas_requests_total",
+            "iHaveResponsesSent": "ihave_responses_total",
+            "readPropertyRequestsSent": "read_property_requests_total",
+            "readPropertyResponsesSent": "read_property_responses_total",
+            "writePropertyRequestsSent": "write_property_requests_total",
+            "writePropertyResponsesSent": "write_property_responses_total",
+            "unconfirmedCOVNotificationsSent": "unconfirmed_cov_notifications_total",
+            "confirmedCOVNotificationsSent": "confirmed_cov_notifications_total",
+            "globalBroadcastMessageCount": "global_broadcasts_total",
+            "totalBroadcastsSent": "total_broadcasts_total",
+            "totalRequestsSent": "total_requests_total",
+            "totalResponsesSent": "total_responses_total",
+            "mstpDevice": "is_mstp_device",
+            "remoteNetworkDevice": "is_remote_network_device",
+        }
+        
+        # Start writing the file with the current timestamp
+        with open(output_file, "w") as f:
+            f.write(f"# BACnet metrics generated on {datetime.datetime.now().isoformat()}\n")
+            f.write("# This file follows Prometheus exposition format and OpenTelemetry semantic conventions\n\n")
+            
+            # Process each metric by type for all devices
+            processed_metrics = {}
+            
+            # First, create HELP and TYPE entries for each metric
+            for metric_name, prometheus_name in metric_name_map.items():
+                full_metric_name = f"{prefix}_{prometheus_name}"
+                metric_type = metric_types.get(metric_name, "untyped")
+                
+                help_text = self._get_metric_help_text(metric_name)
+                processed_metrics[metric_name] = {
+                    "name": full_metric_name,
+                    "type": metric_type,
+                    "help": help_text,
+                    "values": []
+                }
+                
+                # Write HELP and TYPE comments
+                f.write(f"# HELP {full_metric_name} {help_text}\n")
+                f.write(f"# TYPE {full_metric_name} {metric_type}\n")
+            
+            # Now collect actual values for each metric
+            for device_key, data in self.device_metrics.items():
+                device_info = data["info"]
+                metrics = data["metrics"]
+                
+                # Extract device information
+                device_id = None
+                device_name = None
+                bacnet_address = device_info.bacnet_address if hasattr(device_info, "bacnet_address") else None
+                
+                if isinstance(device_key, int):
+                    # This is a device with an ID
+                    device_id = device_key
+                    device_name = f"Device {device_id}"
+                else:
+                    # This is an interface-only entry
+                    if hasattr(device_info, "address"):
+                        bacnet_address = device_info.address
+                    elif isinstance(device_info, dict) and "address" in device_info:
+                        bacnet_address = device_info["address"]
+                    
+                    device_name = f"Interface {bacnet_address}"
+                
+                # Get address components
+                network, mac, address_type, is_mstp = self._get_address_type(bacnet_address)
+                
+                # Define base labels for this device
+                base_labels = {
+                    "device_id": str(device_id) if device_id else "",
+                    "address": bacnet_address if bacnet_address else "",
+                    "network": network if network else "0",
+                    "name": device_name,
+                }
+                
+                # Add address type as a label
+                if address_type == "ip":
+                    base_labels["address_type"] = "bacnet_ip"
+                elif address_type == "mstp":
+                    base_labels["address_type"] = "mstp"
+                else:
+                    base_labels["address_type"] = "remote_network"
+                
+                # Add each metric value for this device
+                for metric_name, value in metrics.items():
+                    if value > 0 and metric_name in metric_name_map:  # Only include non-zero metrics
+                        prometheus_name = processed_metrics[metric_name]["name"]
+                        
+                        # Format labels according to Prometheus conventions
+                        label_str = ",".join([f'{k}="{v}"' for k, v in base_labels.items()])
+                        if label_str:
+                            metric_line = f'{prometheus_name}{{{label_str}}} {value}'
+                        else:
+                            metric_line = f'{prometheus_name} {value}'
+                        
+                        processed_metrics[metric_name]["values"].append(metric_line)
+            
+            # Write all the metric values 
+            for metric_info in processed_metrics.values():
+                # Skip metrics with no values
+                if not metric_info["values"]:
+                    continue
+                    
+                # Write values for this metric
+                for value_line in metric_info["values"]:
+                    f.write(f"{value_line}\n")
+                
+                # Add blank line between different metrics for readability
+                f.write("\n")
+    
+    def _get_metric_help_text(self, metric_name: str) -> str:
+        """Get help text for a metric.
+        
+        Args:
+            metric_name: The name of the metric
+            
+        Returns:
+            A string with help text describing the metric
+        """
+        help_texts = {
+            "packetsReceived": "Total number of BACnet packets observed from this device",
+            "totalBacnetMessagesSent": "Total number of BACnet messages sent by this device",
+            "broadcastPacketsSent": "Number of broadcast packets sent by this device",
+            "routedMessagesSent": "Number of messages sent via routing by this device",
+            "broadcastRelayed": "Number of broadcasts relayed by this device",
+            "messagesRouted": "Number of messages routed by this device",
+            "messagesForwarded": "Number of messages forwarded by this device (BBMD)",
+            "routedDevicesSeen": "Number of unique devices seen through routing",
+            "whoIsRequestsSent": "Number of WhoIs requests sent by this device",
+            "globalWhoIsRequestsSent": "Number of global WhoIs requests sent by this device",
+            "directedWhoIsRequestsSent": "Number of directed WhoIs requests sent by this device",
+            "iAmResponsesSent": "Number of IAm responses sent by this device",
+            "whoHasRequestsSent": "Number of WhoHas requests sent by this device",
+            "globalWhoHasRequestsSent": "Number of global WhoHas requests sent by this device",
+            "directedWhoHasRequestsSent": "Number of directed WhoHas requests sent by this device",
+            "iHaveResponsesSent": "Number of IHave responses sent by this device",
+            "readPropertyRequestsSent": "Number of ReadProperty requests sent by this device",
+            "readPropertyResponsesSent": "Number of ReadProperty responses sent by this device",
+            "writePropertyRequestsSent": "Number of WriteProperty requests sent by this device",
+            "writePropertyResponsesSent": "Number of WriteProperty responses sent by this device",
+            "unconfirmedCOVNotificationsSent": "Number of unconfirmed COV notifications sent by this device",
+            "confirmedCOVNotificationsSent": "Number of confirmed COV notifications sent by this device",
+            "globalBroadcastMessageCount": "Count of global broadcasts from this device",
+            "totalBroadcastsSent": "Total number of broadcasts sent by this device",
+            "totalRequestsSent": "Total number of BACnet requests sent by this device",
+            "totalResponsesSent": "Total number of BACnet responses sent by this device",
+            "mstpDevice": "Indicates if this is an MS/TP device (1=yes, 0=no)",
+            "remoteNetworkDevice": "Indicates if this is a device on a remote network (1=yes, 0=no)",
+        }
+        
+        return help_texts.get(metric_name, f"Metric {metric_name} from BACnet device")

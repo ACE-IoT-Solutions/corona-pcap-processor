@@ -10,7 +10,11 @@ A toolkit for analyzing BACnet packet captures (PCAP files), processing message 
 - Handles both direct BACnet/IP messages and forwarded NPDUs
 - Supports MS/TP devices through router forwarding
 - Generates detailed traffic statistics and device reports
-- Generates Corona-compatible metrics in TTL (Turtle) format
+- Exports metrics in multiple formats:
+  - TTL (Turtle) format for RDF/Corona compatibility
+  - Project Haystack Zinc Grid format
+  - Project Haystack JSON format
+  - Prometheus exposition format with OpenTelemetry conventions
 - Validates metrics against the Corona standard
 
 ## Project Structure
@@ -63,7 +67,7 @@ results = analyzer.analyze_pcap("sample-pcap.pcap")
 analyzer.print_summary(results)
 ```
 
-### Generating Corona Metrics
+### Generating Metrics
 
 ```python
 from bacnet_analyzer import BACnetAnalyzer
@@ -77,8 +81,11 @@ results = analyzer.analyze_pcap("sample-pcap.pcap")
 metrics_gen = CoronaMetricsGenerator(results, capture_device="10.0.0.1")
 metrics_gen.generate_metrics()
 
-# Export to TTL format
-metrics_gen.export_ttl("metrics.ttl")
+# Export in different formats
+metrics_gen.export_ttl("metrics.ttl")                  # RDF Turtle format
+metrics_gen.export_haystack_zinc("metrics.zinc")       # Haystack Zinc format
+metrics_gen.export_haystack_json("metrics.json")       # Haystack JSON format
+metrics_gen.export_prometheus("metrics.prom")          # Prometheus exposition format
 ```
 
 ### Using the Command-Line Tools
@@ -96,14 +103,23 @@ python tests/validate_metrics.py validate metrics.ttl --analyze
 #### Process PCAP and Generate Metrics
 
 ```bash
-# Process a PCAP file and generate metrics
-python tests/validate_metrics.py process sample-pcap.pcap --output metrics.ttl
+# Process a PCAP file and generate metrics (default TTL format)
+python generate_corona_metrics.py sample-pcap.pcap metrics.ttl
 
 # Process with capture device
-python tests/validate_metrics.py process sample-pcap.pcap --output metrics.ttl --capture-device 10.0.0.1
+python generate_corona_metrics.py sample-pcap.pcap metrics.ttl --capture-device 10.0.0.1
 
-# Process, generate metrics, and validate in one step
-python tests/validate_metrics.py process sample-pcap.pcap --analyze
+# Generate in Haystack Zinc format
+python generate_corona_metrics.py sample-pcap.pcap metrics.zinc --format zinc
+
+# Generate in Haystack JSON format
+python generate_corona_metrics.py sample-pcap.pcap metrics.json --format json
+
+# Generate in Prometheus format with OpenTelemetry conventions
+python generate_corona_metrics.py sample-pcap.pcap metrics.prom --format prom
+
+# Generate with debug output
+python generate_corona_metrics.py sample-pcap.pcap metrics.ttl --debug
 ```
 
 ## BACnet Message Detection
@@ -117,23 +133,59 @@ The analyzer detects BACnet message types in two ways:
    - Service Choice 7: "WhoHasRequest" 
    - Service Choice 8: "WhoIsRequest"
 
-## Corona Metrics
+## Metrics Export Formats
 
-The package can generate metrics in a format compatible with the Corona standard, which is useful for:
+The package can generate BACnet metrics in multiple formats:
 
-- Tracking device behavior and performance
-- Measuring network traffic patterns
-- Analyzing broadcast and routed traffic
-- Identifying device types and communication patterns
+### Corona Metrics (TTL)
 
-Metrics are generated in Turtle (.ttl) format, using RDF triples. These metrics cover:
+Metrics in a format compatible with the Corona standard using RDF Turtle format:
+
+- Uses RDF triples to represent metrics and relationships
+- Follows the Corona metrics ontology for compatibility
+- Enables semantic queries and integration with RDF tools
+- Supports relationship modeling between devices and interfaces
+
+### Project Haystack (Zinc and JSON)
+
+Metrics in Project Haystack format for building automation systems:
+
+- **Zinc Grid Format**: Compact, human-readable tabular format
+- **JSON Format**: Project Haystack encoded in standard JSON
+
+Haystack exports organize metrics with:
+- Row-based representation of each metric
+- Device and metric tagging
+- Standard Haystack metadata
+
+### Prometheus with OpenTelemetry Conventions
+
+Metrics in Prometheus exposition format following OpenTelemetry semantic conventions:
+
+- **Text-based format**: Standard Prometheus exposition format
+- **OpenTelemetry compliance**: Follows OTel naming and labeling conventions
+- **Counter and gauge support**: Properly categorizes metrics by type
+- **Rich metadata**: Includes help text and type information
+
+Example metrics in Prometheus format:
+```
+# HELP bacnet_packets_total Total number of BACnet packets observed from this device
+# TYPE bacnet_packets_total counter
+bacnet_packets_total{device_id="709101",address="0:10.21.86.4",network="0",name="Device 709101",address_type="bacnet_ip"} 5052
+
+# HELP bacnet_whois_requests_total Number of WhoIs requests sent by this device
+# TYPE bacnet_whois_requests_total counter
+bacnet_whois_requests_total{device_id="709101",address="0:10.21.86.4",network="0",name="Device 709101",address_type="bacnet_ip"} 1579
+```
+
+All export formats cover the same metrics:
 
 - Network interface metrics (broadcasts, unicasts, etc.)
 - Application-level metrics (requests, responses by type)
 - Router-specific metrics (forwarded messages, etc.)
 - Device identification information
 
-See the `corona-standard/README.md` file for details on the standard.
+See the `corona-standard/README.md` file for details on the Corona standard format.
 
 ## Architecture
 
