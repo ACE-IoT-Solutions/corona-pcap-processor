@@ -51,30 +51,24 @@ class TestBACnetAnalyzer(unittest.TestCase):
         results = analyzer.analyze_pcap(self.test_pcaps["forwarded"])
 
         # Verify device cache has entries
-        self.assertTrue(
-            len(results.device_cache) > 0, "No devices found in device cache"
-        )
+        self.assertTrue(len(results.device_cache) > 0, "No devices found in device cache")
 
         # Check for device ID-based entries
-        device_id_entries = [
-            k for k in results.device_cache.keys() if k.startswith("device:")
-        ]
-        self.assertTrue(
-            len(device_id_entries) > 0, "No device ID-based entries in device cache"
-        )
-        
+        device_id_entries = [k for k in results.device_cache.keys() if k.startswith("device:")]
+        self.assertTrue(len(device_id_entries) > 0, "No device ID-based entries in device cache")
+
         # Check that devices have valid BACnet addresses
         for addr, info in results.device_cache.items():
             if addr.startswith("device:"):
                 continue  # Skip device ID entries
-                
+
             # Verify that the address contains a network number and MAC part
             self.assertIn(":", addr, f"Invalid BACnet address format for {addr}")
-            
+
             # Check that device_info contains required fields
             self.assertTrue(hasattr(info, "device_id"), "Device info missing device_id")
             self.assertTrue(hasattr(info, "bacnet_address"), "Device info missing bacnet_address")
-            
+
         # Check for IP-based devices (which our sample files contain)
         ip_devices = []
         for addr, info in results.device_cache.items():
@@ -98,9 +92,7 @@ class TestBACnetAnalyzer(unittest.TestCase):
         for addr, stats in results.address_stats.items():
             message_types.update(stats.message_types.keys())
 
-        self.assertIn(
-            "WhoIsRequest", message_types, "WhoIsRequest message type not found"
-        )
+        self.assertIn("WhoIsRequest", message_types, "WhoIsRequest message type not found")
         self.assertIn("IAmRequest", message_types, "IAmRequest message type not found")
 
 
@@ -134,18 +126,17 @@ class TestCoronaMetricsGenerator(unittest.TestCase):
                 # Check for basic required metrics for each device
                 for device_id, data in metrics_gen.device_metrics.items():
                     metrics = data["metrics"]
-                    
+
                     # Each device should have at least packet counts
                     self.assertTrue(
-                        "totalBacnetMessagesSent" in metrics 
-                        and "packetsReceived" in metrics,
-                        f"Basic packet metrics missing for device {device_id}"
+                        "totalBacnetMessagesSent" in metrics and "packetsReceived" in metrics,
+                        f"Basic packet metrics missing for device {device_id}",
                     )
-                    
+
                     # Validate that metrics have the expected structure
                     self.assertTrue(
                         isinstance(metrics["totalBacnetMessagesSent"], int),
-                        f"Expected numeric value for metrics for {device_id}"
+                        f"Expected numeric value for metrics for {device_id}",
                     )
 
     def test_ttl_export(self):

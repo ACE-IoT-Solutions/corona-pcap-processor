@@ -10,7 +10,7 @@ from .models import AddressStats
 
 def create_empty_stats() -> AddressStats:
     """Create a new, empty AddressStats object.
-    
+
     Returns:
         An empty AddressStats object
     """
@@ -25,14 +25,14 @@ def update_address_stats(
     is_forwarded: bool = False,
 ) -> AddressStats:
     """Update the statistics for a given source address and message type.
-    
+
     Args:
         stats: The existing AddressStats object to update
         msg_type: The message type to add
         is_broadcast: Whether this is a broadcast message
         is_routed: Whether this is a routed message (if None, determined from msg_type)
         is_forwarded: Whether this is a forwarded packet
-        
+
     Returns:
         The updated AddressStats object
     """
@@ -46,26 +46,26 @@ def update_address_stats(
         broadcast_messages=stats.broadcast_messages,
         forwarded_packets=stats.forwarded_packets + (1 if is_forwarded else 0),
     )
-    
+
     # Update message type count
     updated_stats.update_message_type(msg_type)
-    
+
     # Determine if the message is routed based on type if not explicitly specified
     if is_routed is None:
         is_routed = msg_type in ROUTED_MESSAGE_TYPES
-    
+
     # Update routing stats
     if is_routed:
         updated_stats.routed_messages += 1
     else:
         updated_stats.non_routed_messages += 1
-    
+
     # Update broadcast/unicast stats
     if is_broadcast:
         updated_stats.broadcast_messages += 1
     else:
         updated_stats.unicast_messages += 1
-    
+
     return updated_stats
 
 
@@ -78,7 +78,7 @@ def update_stats_dict(
     is_forwarded: bool = False,
 ) -> Dict[str, AddressStats]:
     """Update a dictionary of address statistics.
-    
+
     Args:
         address_stats: The existing dictionary of address statistics
         src_addr: The source address to update stats for
@@ -86,16 +86,16 @@ def update_stats_dict(
         is_broadcast: Whether this is a broadcast message
         is_routed: Whether this is a routed message (if None, determined from msg_type)
         is_forwarded: Whether this is a forwarded packet
-        
+
     Returns:
         The updated dictionary of address statistics
     """
     # Make a shallow copy of the stats dictionary
     updated_stats = address_stats.copy()
-    
+
     # Get existing stats for this address or create new ones
     existing_stats = updated_stats.get(src_addr, create_empty_stats())
-    
+
     # Update the stats
     updated_stats[src_addr] = update_address_stats(
         existing_stats,
@@ -104,5 +104,5 @@ def update_stats_dict(
         is_routed,
         is_forwarded,
     )
-    
+
     return updated_stats

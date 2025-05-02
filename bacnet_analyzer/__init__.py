@@ -3,8 +3,8 @@ BACnet PCAP Analyzer package.
 """
 
 from .analyzer import BACnetAnalyzer
-from .models import DeviceInfo, AddressStats, AnalysisResults
 from .constants import ServiceChoiceMapping
+from .models import AddressStats, AnalysisResults, DeviceInfo
 
 __all__ = [
     "BACnetAnalyzer",

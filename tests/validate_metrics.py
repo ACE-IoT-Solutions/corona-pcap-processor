@@ -43,9 +43,7 @@ def validate_metrics_file(
     if not corona_standard_dir:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.normpath(os.path.join(current_dir, ".."))
-        corona_standard_dir = os.path.normpath(
-            os.path.join(project_root, "corona-standard")
-        )
+        corona_standard_dir = os.path.normpath(os.path.join(project_root, "corona-standard"))
 
     if not os.path.exists(corona_standard_dir):
         logging.error(f"Error: Corona standard repository not found at {corona_standard_dir}")
@@ -58,9 +56,7 @@ def validate_metrics_file(
     validator_script = os.path.join(corona_standard_dir, "validate_model.py")
     if not os.path.exists(validator_script):
         logging.error(f"Error: Validator script not found at {validator_script}")
-        logging.error(
-            "Please make sure the Corona standard repository contains validate_model.py."
-        )
+        logging.error("Please make sure the Corona standard repository contains validate_model.py.")
         return False
 
     # Build the command
@@ -113,20 +109,17 @@ def process_pcap_and_validate(
     try:
         # Configure logging
         log_level = logging.DEBUG if debug else logging.INFO
-        logging.basicConfig(
-            level=log_level,
-            format="%(levelname)s: %(message)s"
-        )
-        
+        logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
+
         # Process the PCAP file
         analyzer = BACnetAnalyzer(debug=debug, debug_level=debug_level)
         logging.info(f"Analyzing PCAP file: {pcap_file}")
         results = analyzer.analyze_pcap(pcap_file)
-        
+
         # Generate metrics
         metrics_gen = CoronaMetricsGenerator(results, capture_device)
         metrics_gen.generate_metrics()
-        
+
         # Create tempfile if no output file specified
         if not output_file:
             fd, output_file = tempfile.mkstemp(suffix=".ttl")
@@ -134,22 +127,20 @@ def process_pcap_and_validate(
             temp_file_created = True
         else:
             temp_file_created = False
-        
+
         # Export metrics
         metrics_gen.export_ttl(output_file)
         logging.info(f"Metrics exported to: {output_file}")
-        
+
         # Validate metrics
-        validation_result = validate_metrics_file(
-            output_file, analyze, corona_standard_dir
-        )
-        
+        validation_result = validate_metrics_file(output_file, analyze, corona_standard_dir)
+
         # Clean up temporary file if created
         if temp_file_created and os.path.exists(output_file):
             os.unlink(output_file)
-        
+
         return validation_result
-        
+
     except Exception as e:
         logging.error(f"Error processing PCAP file: {str(e)}")
         return False
@@ -159,15 +150,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Validate Corona metrics files against the Corona standard."
     )
-    
+
     # Create subparsers for different commands
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
-    
+
     # Validate command
     validate_parser = subparsers.add_parser("validate", help="Validate a metrics file")
-    validate_parser.add_argument(
-        "metrics_file", help="The metrics file to validate (TTL format)"
-    )
+    validate_parser.add_argument("metrics_file", help="The metrics file to validate (TTL format)")
     validate_parser.add_argument(
         "--analyze",
         action="store_true",
@@ -177,19 +166,13 @@ def main():
         "--corona-standard-dir",
         help="Path to the Corona standard repository (defaults to ../corona-standard)",
     )
-    
+
     # Process command
     process_parser = subparsers.add_parser(
-        "process", 
-        help="Process a PCAP file, generate metrics, and validate them"
+        "process", help="Process a PCAP file, generate metrics, and validate them"
     )
-    process_parser.add_argument(
-        "pcap_file", help="The PCAP file to process"
-    )
-    process_parser.add_argument(
-        "--output", 
-        help="Path to write the metrics file to (optional)"
-    )
+    process_parser.add_argument("pcap_file", help="The PCAP file to process")
+    process_parser.add_argument("--output", help="Path to write the metrics file to (optional)")
     process_parser.add_argument(
         "--capture-device",
         help="BACnet address of the device used to capture packets",
@@ -215,25 +198,18 @@ def main():
         "--corona-standard-dir",
         help="Path to the Corona standard repository (defaults to ../corona-standard)",
     )
-    
+
     # Parse arguments
     args = parser.parse_args()
-    
+
     # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s: %(message)s"
-    )
-    
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
     # Handle commands
     if args.command == "validate":
-        success = validate_metrics_file(
-            args.metrics_file, 
-            args.analyze, 
-            args.corona_standard_dir
-        )
+        success = validate_metrics_file(args.metrics_file, args.analyze, args.corona_standard_dir)
         sys.exit(0 if success else 1)
-    
+
     elif args.command == "process":
         success = process_pcap_and_validate(
             args.pcap_file,
@@ -242,10 +218,10 @@ def main():
             args.analyze,
             args.debug,
             args.debug_level,
-            args.corona_standard_dir
+            args.corona_standard_dir,
         )
         sys.exit(0 if success else 1)
-    
+
     else:
         # If no command provided, show help
         parser.print_help()

@@ -10,15 +10,13 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rdflib import RDF, RDFS, XSD, Graph, Literal, Namespace, URIRef
 
-from .models import AnalysisResults, DeviceInfo, AddressStats
+from .models import AddressStats, AnalysisResults, DeviceInfo
 
 
 class CoronaMetricsGenerator:
     """Generates Corona-compatible metrics from BACnet PCAP analysis using rdflib."""
 
-    def __init__(
-        self, analysis_results: AnalysisResults, capture_device: Optional[str] = None
-    ):
+    def __init__(self, analysis_results: AnalysisResults, capture_device: Optional[str] = None):
         """
         Initialize with analysis results.
 
@@ -96,10 +94,7 @@ class CoronaMetricsGenerator:
 
             # Find all addresses that might be associated with this device
             for addr, dev_info in self.device_cache.items():
-                if (
-                    dev_info.device_id == device_id
-                    and addr in self.address_stats
-                ):
+                if dev_info.device_id == device_id and addr in self.address_stats:
                     stats = self.address_stats[addr]
 
                     # Update metrics only if we found valid stats for this address
@@ -143,13 +138,11 @@ class CoronaMetricsGenerator:
                 }
 
                 # Update metrics for this interface
-                self._update_device_metrics(
-                    self.device_metrics[addr_id]["metrics"], stats
-                )
+                self._update_device_metrics(self.device_metrics[addr_id]["metrics"], stats)
 
     def _update_device_metrics(self, device_metrics: Dict[str, int], stats: AddressStats) -> None:
         """Update device metrics from the given stats.
-        
+
         Args:
             device_metrics: The metrics dictionary to update
             stats: The address stats to extract metrics from
@@ -357,9 +350,7 @@ class CoronaMetricsGenerator:
                 (
                     capture_device_uri,
                     self.CORONA.description,
-                    Literal(
-                        "Device used to capture BACnet traffic", datatype=XSD.string
-                    ),
+                    Literal("Device used to capture BACnet traffic", datatype=XSD.string),
                 )
             )
             self.graph.add(
@@ -378,20 +369,16 @@ class CoronaMetricsGenerator:
 
             if isinstance(device_key, int):
                 # This is a device with a device ID
-                self._add_device_to_graph(
-                    device_key, device_info, metrics, capture_device_uri
-                )
+                self._add_device_to_graph(device_key, device_info, metrics, capture_device_uri)
             else:
                 # This is an interface-only entry
-                self._add_interface_to_graph(
-                    device_key, device_info, metrics, capture_device_uri
-                )
+                self._add_interface_to_graph(device_key, device_info, metrics, capture_device_uri)
 
     def _add_device_to_graph(
         self, device_id: int, device_info: Any, metrics: Dict[str, int], capture_device_uri=None
     ) -> None:
         """Add a BACnet device and its interface to the RDF graph.
-        
+
         Args:
             device_id: The device ID
             device_info: The device information
@@ -492,9 +479,7 @@ class CoronaMetricsGenerator:
                     )
 
                 # Add address type
-                address_type_value = (
-                    "ms-tp" if address_type == "mstp" else "remote-network"
-                )
+                address_type_value = "ms-tp" if address_type == "mstp" else "remote-network"
                 self.graph.add(
                     (
                         device_uri,
@@ -524,9 +509,7 @@ class CoronaMetricsGenerator:
             (
                 interface_uri,
                 self.CORONA.identifier,
-                Literal(
-                    f"network-performance-monitor-{device_id}", datatype=XSD.string
-                ),
+                Literal(f"network-performance-monitor-{device_id}", datatype=XSD.string),
             )
         )
         self.graph.add(
@@ -544,14 +527,11 @@ class CoronaMetricsGenerator:
             )
         )
 
-        # Add relationship to parent device
-        self.graph.add((interface_uri, self.CORONA.reportedBy, device_uri))
+        # Relationship to parent device is handled by the BACNET.contains property
 
         # Add observedFrom relationship if capture device provided
         if capture_device_uri:
-            self.graph.add(
-                (interface_uri, self.CORONA.observedFrom, capture_device_uri)
-            )
+            self.graph.add((interface_uri, self.CORONA.observedFrom, capture_device_uri))
 
         # Add all metrics with non-zero values
         for metric_name, value in metrics.items():
@@ -565,10 +545,14 @@ class CoronaMetricsGenerator:
                 )
 
     def _add_interface_to_graph(
-        self, interface_key: str, interface_info: Any, metrics: Dict[str, int], capture_device_uri=None
+        self,
+        interface_key: str,
+        interface_info: Any,
+        metrics: Dict[str, int],
+        capture_device_uri=None,
     ) -> None:
         """Add an interface-only entry to the RDF graph.
-        
+
         Args:
             interface_key: The interface key
             interface_info: The interface information
@@ -624,9 +608,7 @@ class CoronaMetricsGenerator:
         )
 
         # Add address information
-        self.graph.add(
-            (interface_uri, self.BACNET.address, Literal(address, datatype=XSD.string))
-        )
+        self.graph.add((interface_uri, self.BACNET.address, Literal(address, datatype=XSD.string)))
 
         # Add more specific network information if available
         if network != "0":
@@ -688,14 +670,11 @@ class CoronaMetricsGenerator:
                 )
             )
 
-        # For interface-only entries, they report themselves
-        self.graph.add((interface_uri, self.CORONA.reportedBy, interface_uri))
+        # Interface-only entries don't need a reportedBy relation
 
         # Add observedFrom relationship if capture device provided
         if capture_device_uri:
-            self.graph.add(
-                (interface_uri, self.CORONA.observedFrom, capture_device_uri)
-            )
+            self.graph.add((interface_uri, self.CORONA.observedFrom, capture_device_uri))
 
         # Add all metrics with non-zero values
         for metric_name, value in metrics.items():
@@ -710,7 +689,7 @@ class CoronaMetricsGenerator:
 
     def export_ttl(self, output_file: str) -> None:
         """Export the metrics in Corona-compatible Turtle (.ttl) format.
-        
+
         Args:
             output_file: The path to write the output file to
         """

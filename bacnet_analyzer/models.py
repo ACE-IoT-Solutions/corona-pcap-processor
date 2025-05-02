@@ -4,8 +4,9 @@ Data models for BACnet PCAP Analyzer.
 
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Any
 from typing import Counter as CounterType
-from typing import Dict, Optional, Set, FrozenSet, Any, Mapping
+from typing import Dict, FrozenSet, Mapping, Optional, Set
 
 from bacpypes3.basetypes import Address
 
@@ -13,7 +14,7 @@ from bacpypes3.basetypes import Address
 @dataclass(frozen=True)
 class DeviceInfo:
     """Information about a discovered BACnet device."""
-    
+
     device_id: int
     address: Address  # IP address
     bacnet_address: Optional[str] = None  # <network>:<mac> format
@@ -27,7 +28,7 @@ class DeviceInfo:
 @dataclass
 class AddressStats:
     """Statistics for a source address."""
-    
+
     total_packets: int = 0
     message_types: CounterType = field(default_factory=Counter)
     routed_messages: int = 0
@@ -35,19 +36,19 @@ class AddressStats:
     unicast_messages: int = 0
     broadcast_messages: int = 0
     forwarded_packets: int = 0
-    
+
     def update_message_type(self, msg_type: str, count: int = 1) -> None:
         """Update the counter for a message type.
-        
+
         Args:
             msg_type: The message type to update
             count: The amount to increment the counter by (default: 1)
         """
         self.message_types[msg_type] += count
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the stats to a dictionary for serialization.
-        
+
         Returns:
             A dictionary representation of the address stats
         """
@@ -65,6 +66,6 @@ class AddressStats:
 @dataclass
 class AnalysisResults:
     """Results of analyzing a BACnet PCAP file."""
-    
+
     address_stats: Dict[str, AddressStats] = field(default_factory=dict)
     device_cache: Dict[str, DeviceInfo] = field(default_factory=dict)

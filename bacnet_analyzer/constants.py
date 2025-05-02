@@ -10,6 +10,7 @@ from bacpypes3.apdu import apdu_types
 
 class ServiceChoice(Enum):
     """BACnet service choices."""
+
     I_AM = 0
     I_HAVE = 1
     WHO_HAS = 7
@@ -27,26 +28,26 @@ SERVICE_CHOICE_TO_TYPE: Final[Dict[int, str]] = {
 
 class ServiceChoiceMapping:
     """Utilities for working with BACnet service choices."""
-    
+
     @staticmethod
     def get_message_type(service_choice: int) -> str:
         """Get the standard message type name for a service choice.
-        
+
         Args:
             service_choice: The numeric service choice value (0-255)
-            
+
         Returns:
             The standard message type name, or None if not recognized
         """
         return SERVICE_CHOICE_TO_TYPE.get(service_choice)
-    
+
     @staticmethod
     def is_recognized(service_choice: int) -> bool:
         """Check if the service choice is recognized by this analyzer.
-        
+
         Args:
             service_choice: The numeric service choice value (0-255)
-            
+
         Returns:
             True if the service choice is recognized, False otherwise
         """

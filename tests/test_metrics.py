@@ -59,7 +59,7 @@ class TestBACnetAnalyzer:
             device_ids.add(device_info.device_id)
 
         assert len(device_ids) > 0, "No device IDs found"
-        
+
         # Note: The SampleWhoisIamForwardedBroadcast.pcap file doesn't contain MS/TP devices
         # So instead we check that BACnet/IP devices are being identified correctly
         ip_devices = 0
@@ -80,17 +80,19 @@ class TestBACnetAnalyzer:
 
         # Check for BACnet message types
         message_types = set()
-        
+
         # Collect all message types across all addresses
         for addr, stats in results.address_stats.items():
             message_types.update(stats.message_types.keys())
-        
+
         # Check that we found at least some BACnet message types
         assert len(message_types) > 0, "No BACnet message types found"
-        
+
         # Check that we found at least one of the standard message types
         standard_types = {"WhoIsRequest", "IAmRequest"}
-        assert len(message_types.intersection(standard_types)) > 0, "No standard BACnet message types found"
+        assert (
+            len(message_types.intersection(standard_types)) > 0
+        ), "No standard BACnet message types found"
 
 
 class TestCoronaMetricsGenerator:
@@ -166,9 +168,7 @@ class TestCoronaMetricsGenerator:
         assert len(bacnet_devices) > 0, "No BACnet Device instances found"
 
         # Check for NetworkInterfaceMetric instances
-        interface_metrics = list(
-            graph.subjects(RDF.type, CORONA.NetworkInterfaceMetric)
-        )
+        interface_metrics = list(graph.subjects(RDF.type, CORONA.NetworkInterfaceMetric))
         assert len(interface_metrics) > 0, "No NetworkInterfaceMetric instances found"
 
         # Check device-interface relationships
@@ -206,28 +206,28 @@ class TestSpecificPcapContent:
         mock_stats.message_types["WhoHasRequest"] = 1
         mock_stats.total_packets = 1
         mock_stats.broadcast_messages = 1
-        
+
         # Create a metrics generator with empty results
         results = AnalysisResults()
         metrics_gen = CoronaMetricsGenerator(results)
         device_metrics = metrics_gen._initialize_metrics()
-        
+
         # Update metrics with the WhoHas message
         metrics_gen._update_device_metrics(device_metrics, mock_stats)
-        
+
         # Verify WhoHas metrics
         assert device_metrics["whoHasRequestsSent"] == 1, "WhoHas requests not counted"
         assert device_metrics["globalWhoHasRequestsSent"] == 1, "Global WhoHas requests not counted"
         assert device_metrics["totalRequestsSent"] == 1, "Total requests not properly counted"
-        
+
         # Create a mock stats object to simulate a device that sent IHave messages
         mock_stats = AddressStats()
         mock_stats.message_types["IHaveRequest"] = 1
         mock_stats.total_packets = 1
-        
+
         # Update metrics with the IHave message
         metrics_gen._update_device_metrics(device_metrics, mock_stats)
-        
+
         # Verify IHave metrics
         assert device_metrics["iHaveResponsesSent"] == 1, "IHave responses not counted"
         assert device_metrics["totalResponsesSent"] == 1, "Total responses not properly counted"
@@ -286,7 +286,7 @@ class TestSpecificPcapContent:
 
         # Note: The sample file doesn't actually contain forwarded messages
         # So instead we check for any metrics related to message counts
-        
+
         message_counts = 0
         for interface in graph.subjects(RDF.type, CORONA.NetworkInterfaceMetric):
             # Check for any message-count related property
@@ -294,21 +294,19 @@ class TestSpecificPcapContent:
                 CORONA.totalBacnetMessagesSent,
                 CORONA.packetsReceived,
                 CORONA.totalRequestsSent,
-                CORONA.totalResponsesSent
+                CORONA.totalResponsesSent,
             ]:
                 values = list(graph.objects(interface, metric_property))
                 for value in values:
                     message_counts += int(str(value))
-        
+
         assert message_counts > 0, "No message count metrics found in the RDF graph"
 
         # Check for BACnet broadcast packets
         total_broadcasts = 0
 
         for interface in graph.subjects(RDF.type, CORONA.NetworkInterfaceMetric):
-            broadcast_values = list(
-                graph.objects(interface, CORONA.broadcastPacketsSent)
-            )
+            broadcast_values = list(graph.objects(interface, CORONA.broadcastPacketsSent))
             for value in broadcast_values:
                 total_broadcasts += int(str(value))
 
@@ -478,9 +476,7 @@ class TestAddressHandling:
                             "0"
                         ), "MS/TP MAC should not have leading zeros"
                     except ValueError:
-                        assert (
-                            False
-                        ), f"MS/TP MAC address '{mac_value}' is not a valid integer"
+                        assert False, f"MS/TP MAC address '{mac_value}' is not a valid integer"
 
 
 class TestCaptureDeviceSupport:
@@ -504,9 +500,7 @@ class TestCaptureDeviceSupport:
         EX = Namespace("http://example.org/bacnet-impl/")
 
         # Check for capture device instance
-        capture_uri = EX[
-            f"capture_{capture_device.replace(':', '_').replace('.', '_')}"
-        ]
+        capture_uri = EX[f"capture_{capture_device.replace(':', '_').replace('.', '_')}"]
         is_capture_device = (capture_uri, RDF.type, CORONA.CaptureDevice) in graph
         assert is_capture_device, "Capture device not found in graph"
 
@@ -516,38 +510,36 @@ class TestCaptureDeviceSupport:
             has_observed_from = True
             break
 
-        assert (
-            has_observed_from
-        ), "No observedFrom relationships to capture device found"
-        
+        assert has_observed_from, "No observedFrom relationships to capture device found"
+
     def test_metrics_generator_with_empty_results(self):
         """Test that the metrics generator can handle empty analysis results."""
         # Create empty analysis results
         empty_results = AnalysisResults()
-        
+
         # Create metrics generator with empty results
         metrics_gen = CoronaMetricsGenerator(empty_results)
-        
+
         # Generate metrics should not raise exceptions
         metrics_gen.generate_metrics()
-        
+
         # Export to a temp file
         with tempfile.NamedTemporaryFile(suffix=".ttl", delete=False) as tmp:
             tmp_path = tmp.name
-            
+
         try:
             # Export should not raise exceptions
             metrics_gen.export_ttl(tmp_path)
-            
+
             # Verify the file exists and has content
             assert os.path.exists(tmp_path), "TTL file was not created"
             # Even with empty results, we should get at least the header comments
             assert os.path.getsize(tmp_path) > 0, "TTL file is completely empty"
-            
+
             # Parse the file to verify it's valid Turtle
             graph = Graph()
             graph.parse(tmp_path, format="turtle")
-            
+
         finally:
             # Clean up
             if os.path.exists(tmp_path):
