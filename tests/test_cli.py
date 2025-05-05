@@ -4,14 +4,10 @@ Test suite for the command-line interface
 """
 
 import os
-import sys
 import subprocess
 import tempfile
 import pytest
 import json
-
-# Add parent directory to path to access modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 class TestCommandLineInterface:
@@ -20,7 +16,15 @@ class TestCommandLineInterface:
     @pytest.fixture
     def sample_pcap(self):
         """Fixture to provide a sample PCAP file path."""
-        return "SampleWhoisIamForwardedBroadcast.pcap"
+        # Assuming the test runs from the project root or tests/ directory
+        # Adjust path if necessary
+        pcap_path = os.path.join(os.path.dirname(__file__), "SampleWhoisIamForwardedBroadcast.pcap")
+        if not os.path.exists(pcap_path):
+            # Try relative to project root if not found relative to test file
+            pcap_path = "SampleWhoisIamForwardedBroadcast.pcap"
+        if not os.path.exists(pcap_path):
+            pytest.fail(f"Sample PCAP file not found at expected locations: {pcap_path}")
+        return pcap_path
     
     def test_generate_metrics_ttl_format(self, sample_pcap):
         """Test that the CLI can generate metrics in TTL format."""
@@ -28,10 +32,9 @@ class TestCommandLineInterface:
             tmp_path = tmp.name
             
         try:
-            # Run the CLI with TTL format
+            # Run the CLI with TTL format using the entry point
             cmd = [
-                sys.executable, 
-                "generate_corona_metrics.py", 
+                "corona-pcap-processor",  # Use the entry point
                 sample_pcap, 
                 tmp_path, 
                 "--format", 
@@ -63,10 +66,9 @@ class TestCommandLineInterface:
             tmp_path = tmp.name
             
         try:
-            # Run the CLI with Zinc format
+            # Run the CLI with Zinc format using the entry point
             cmd = [
-                sys.executable, 
-                "generate_corona_metrics.py", 
+                "corona-pcap-processor",  # Use the entry point
                 sample_pcap, 
                 tmp_path, 
                 "--format", 
@@ -97,10 +99,9 @@ class TestCommandLineInterface:
             tmp_path = tmp.name
             
         try:
-            # Run the CLI with JSON format
+            # Run the CLI with JSON format using the entry point
             cmd = [
-                sys.executable, 
-                "generate_corona_metrics.py", 
+                "corona-pcap-processor",  # Use the entry point
                 sample_pcap, 
                 tmp_path, 
                 "--format", 
@@ -135,10 +136,9 @@ class TestCommandLineInterface:
             tmp_path = tmp.name
             
         try:
-            # Run the CLI with Prometheus format
+            # Run the CLI with Prometheus format using the entry point
             cmd = [
-                sys.executable, 
-                "generate_corona_metrics.py", 
+                "corona-pcap-processor",  # Use the entry point
                 sample_pcap, 
                 tmp_path, 
                 "--format", 
@@ -183,10 +183,9 @@ class TestCommandLineInterface:
                 if "." in os.path.basename(base_path):
                     base_path = os.path.splitext(base_path)[0]
                     
-                # Run the CLI with the format
+                # Run the CLI with the format using the entry point
                 cmd = [
-                    sys.executable, 
-                    "generate_corona_metrics.py", 
+                    "corona-pcap-processor",  # Use the entry point
                     sample_pcap, 
                     base_path, 
                     "--format", 

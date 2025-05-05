@@ -9,6 +9,7 @@ import tempfile
 
 import pytest
 from rdflib import Graph, Namespace
+from rdflib.namespace import RDF, RDFS
 
 # Add parent directory to path to access modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -160,7 +161,7 @@ class TestCoronaMetricsGenerator:
         RDF = Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
         BACNET = Namespace("https://data.ashrae.org/bacnet/")
         CORONA = Namespace("http://example.org/standards/corona/metrics#")
-        EX = Namespace("http://example.org/bacnet-impl/")
+        # EX = Namespace("http://example.org/bacnet-impl/")
 
         # Check for BACnet Device instances
         bacnet_devices = list(graph.subjects(RDF.type, BACNET.Device))
@@ -253,7 +254,7 @@ class TestSpecificPcapContent:
         RDF = Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
         BACNET = Namespace("https://data.ashrae.org/bacnet/")
         CORONA = Namespace("http://example.org/standards/corona/metrics#")
-        EX = Namespace("http://example.org/bacnet-impl/")
+        # EX = Namespace("http://example.org/bacnet-impl/")
 
         # Check for at least one device with address-type
         found_address_type = False
@@ -367,7 +368,7 @@ class TestSpecificPcapContent:
 
             iam_responses = 0
             for value in graph.objects(interface, CORONA.iAmResponsesSent):
-                iam_responses = int(str(value)) 
+                # iam_responses = int(str(value)) 
                 break
 
             # Check that WhoIs counts are reflected in totalRequestsSent
