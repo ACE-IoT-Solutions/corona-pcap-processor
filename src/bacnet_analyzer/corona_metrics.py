@@ -6,8 +6,9 @@ This module works with the functional BACnetAnalyzer implementation.
 
 import datetime
 from collections import defaultdict
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List, cast
 
+import hszinc  # Added import
 from rdflib import RDF, RDFS, XSD, Graph, Literal, Namespace
 
 from .models import AddressStats, AnalysisResults
@@ -26,7 +27,7 @@ class CoronaMetricsGenerator:
         """
         self.address_stats = analysis_results.address_stats
         self.device_cache = analysis_results.device_cache
-        self.device_metrics = {}  # Will hold per-device metrics
+        self.device_metrics: Dict[Any, Dict[str, Any]] = {}  # Will hold per-device metrics
         self.capture_device = capture_device  # Store the capture device address if provided
 
         # Create an RDF graph
@@ -79,6 +80,8 @@ class CoronaMetricsGenerator:
             # For MS/TP devices, they may not have stats directly on their address,
             # but rather through the router that forwarded their messages.
             bacnet_address = device_info.bacnet_address
+            if not bacnet_address:  # Add a check for None before calling _get_address_type
+                continue
             network, mac, address_type, is_mstp = self._get_address_type(bacnet_address)
 
             # If this is an MS/TP or remote network device, it may not have direct stats - need special handling
@@ -386,19 +389,15 @@ class CoronaMetricsGenerator:
             capture_device_uri: Optional URI of the capture device
         """
         # Determine address components
-        bacnet_address = device_info.bacnet_address
-        network, mac, address_type, is_mstp = self._get_address_type(bacnet_address)
+        bacnet_address_val: Optional[str] = getattr(device_info, 'bacnet_address', None)
+        if not bacnet_address_val:  # Should not happen for a device with ID, but as a type guard
+            return
+        # Now bacnet_address_val is confirmed to be a string
+        network, mac, address_type, is_mstp = self._get_address_type(bacnet_address_val)
 
         # Create URIs for device and interface
         device_uri = self.EX[f"dev-{device_id}"]
         interface_uri = self.EX[f"npm-{device_id}-if0"]
-
-        # Determine device type description
-        device_type_desc = "BACnet/IP Device"
-        if address_type == "mstp":
-            device_type_desc = "BACnet MS/TP Device"
-        elif address_type == "network":
-            device_type_desc = "BACnet Network Device"
 
         # Add device triples
         self.graph.add((device_uri, RDF.type, self.BACNET.Device))
@@ -529,7 +528,7 @@ class CoronaMetricsGenerator:
 
         # Relationship to parent device is handled by the BACNET.contains property
 
-        # Add observedFrom relationship if capture device provided
+        # Add observedFrom relationship if capture_device provided
         if capture_device_uri:
             self.graph.add((interface_uri, self.CORONA.observedFrom, capture_device_uri))
 
@@ -717,11 +716,25 @@ class CoronaMetricsGenerator:
         """
         # Grid version and metadata
         timestamp = datetime.datetime.now().isoformat(timespec='seconds')
-        header = f"""ver:"3.0" database:"bacnet" generatedOn:"{timestamp}" dis:"BACnet Corona Metrics"
-id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressType, metric dis:"Metric", val dis:"Value", unit
-"""
-        
-        rows = []
+        grid = hszinc.Grid(version="3.0")
+        grid.metadata.update({
+            "database": "bacnet",
+            "generatedOn": timestamp,
+            "dis": "BACnet Corona Metrics"
+        })
+
+        # Define columns
+        grid.column["id"] = {"dis": "ID"}
+        grid.column["dis"] = {"dis": "Device"}
+        grid.column["device"] = {}
+        grid.column["deviceId"] = {}
+        grid.column["bacnetAddress"] = {}
+        grid.column["network"] = {}
+        grid.column["mac"] = {}
+        grid.column["addressType"] = {}
+        grid.column["metric"] = {"dis": "Metric"}
+        grid.column["val"] = {"dis": "Value"}
+        grid.column["unit"] = {}
         
         # Iterate through all device and interface metrics
         for device_key, data in self.device_metrics.items():
@@ -729,23 +742,26 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
             metrics = data["metrics"]
             
             # Extract device information
-            device_id = None
+            device_id_val = None
             device_name = None
-            bacnet_address = device_info.bacnet_address if hasattr(device_info, "bacnet_address") else None
-            
+            bacnet_address = device_info.get("bacnet_address") if isinstance(device_info, dict) else getattr(device_info, "bacnet_address", None)
+
             if isinstance(device_key, int):
                 # This is a device with an ID
-                device_id = device_key
-                device_name = f"BACnet Device {device_id}"
+                device_id_val = device_key
+                device_name = f"BACnet Device {device_id_val}"
             else:
                 # This is an interface-only entry
-                if hasattr(device_info, "address"):
-                    bacnet_address = device_info.address
-                elif isinstance(device_info, dict) and "address" in device_info:
+                if isinstance(device_info, dict) and "address" in device_info:
                     bacnet_address = device_info["address"]
+                elif hasattr(device_info, "address"):
+                    bacnet_address = getattr(device_info, "address", None)
                 
                 device_name = f"Interface {bacnet_address}"
             
+            if not bacnet_address:  # Skip if bacnet_address is None
+                continue
+
             # Get address components
             network, mac, address_type, _ = self._get_address_type(bacnet_address)
             
@@ -758,22 +774,29 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
                 haystack_address_type = "remote-network"
             
             # Generate unique ID for each entity
-            entity_id = f"@{device_key}" if isinstance(device_key, str) else f"@dev-{device_id}"
+            entity_id_str = f"{device_key}" if isinstance(device_key, str) else f"dev-{device_id_val}"
             
             # Add each metric as a separate row
             for metric_name, value in metrics.items():
                 if value > 0:  # Only include non-zero metrics
-                    rows.append(
-                        f'{entity_id} dis:"{device_name}" device:M deviceId:"{device_id}" '
-                        f'bacnetAddress:"{bacnet_address}" network:"{network}" mac:"{mac}" '
-                        f'addressType:"{haystack_address_type}" metric:"{metric_name}" '
-                        f'val:{value}'
-                    )
+                    row = {
+                        "id": hszinc.Ref(entity_id_str),
+                        "dis": device_name,
+                        "device": hszinc.MARKER,
+                        "deviceId": str(device_id_val) if device_id_val is not None else None,
+                        "bacnetAddress": bacnet_address,
+                        "network": network,
+                        "mac": mac,
+                        "addressType": haystack_address_type,
+                        "metric": metric_name,
+                        "val": value
+                        # "unit": None # No units for these metrics yet, can be added if available
+                    }
+                    grid.append(row)
         
         # Write the file
-        with open(output_file, "w") as f:
-            f.write(header)
-            f.write("\n".join(rows))
+        with open(output_file, "w", encoding='utf-8') as f:
+            f.write(hszinc.dump(grid, mode=hszinc.MODE_ZINC))
             
     def export_haystack_json(self, output_file: str) -> None:
         """Export the metrics in Project Haystack JSON format.
@@ -784,27 +807,31 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
         import json
         
         # Create the grid structure
-        grid = {
-            "meta": {
-                "ver": "3.0",
-                "database": "bacnet", 
-                "generatedOn": datetime.datetime.now().isoformat(timespec='seconds'),
-                "dis": "BACnet Corona Metrics"
-            },
-            "cols": [
-                {"name": "id", "dis": "ID"},
-                {"name": "dis", "dis": "Device"},
-                {"name": "device"},
-                {"name": "deviceId"},
-                {"name": "bacnetAddress"},
-                {"name": "network"},
-                {"name": "mac"},
-                {"name": "addressType"},
-                {"name": "metric", "dis": "Metric"},
-                {"name": "val", "dis": "Value"},
-                {"name": "unit"}
-            ],
-            "rows": []
+        grid_meta: Dict[str, Any] = {
+            "ver": "3.0",
+            "database": "bacnet", 
+            "generatedOn": datetime.datetime.now().isoformat(timespec='seconds'),
+            "dis": "BACnet Corona Metrics"
+        }
+        grid_cols: List[Dict[str, str]] = [
+            {"name": "id", "dis": "ID"},
+            {"name": "dis", "dis": "Device"},
+            {"name": "device"}, # No dis needed if name is the display name
+            {"name": "deviceId"},
+            {"name": "bacnetAddress"},
+            {"name": "network"},
+            {"name": "mac"},
+            {"name": "addressType"},
+            {"name": "metric", "dis": "Metric"},
+            {"name": "val", "dis": "Value"},
+            {"name": "unit"}
+        ]
+        grid_rows: List[Dict[str, Any]] = []
+
+        grid: Dict[str, Any] = {
+            "meta": grid_meta,
+            "cols": grid_cols,
+            "rows": grid_rows
         }
         
         # Iterate through all device and interface metrics
@@ -830,6 +857,9 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
                 
                 device_name = f"Interface {bacnet_address}"
             
+            if not bacnet_address:  # Skip if bacnet_address is None
+                continue
+
             # Get address components
             network, mac, address_type, _ = self._get_address_type(bacnet_address)
             
@@ -847,7 +877,7 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
             # Add each metric as a separate row
             for metric_name, value in metrics.items():
                 if value > 0:  # Only include non-zero metrics
-                    grid["rows"].append({
+                    row_data: Dict[str, Any] = {
                         "id": {"_kind": "ref", "val": entity_id[1:]},  # Remove @ for JSON format
                         "dis": device_name,
                         "device": {"_kind": "marker"},
@@ -859,7 +889,8 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
                         "metric": metric_name,
                         "val": value,
                         "unit": None  # No units for these metrics yet
-                    })
+                    }
+                    grid_rows.append(row_data)
         
         # Write the file
         with open(output_file, "w") as f:
@@ -957,11 +988,12 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
                 metric_type = metric_types.get(metric_name, "untyped")
                 
                 help_text = self._get_metric_help_text(metric_name)
+                metric_values_list: List[str] = []  # Explicitly define as List[str]
                 processed_metrics[metric_name] = {
                     "name": full_metric_name,
                     "type": metric_type,
                     "help": help_text,
-                    "values": []
+                    "values": metric_values_list  # Assign the typed list
                 }
                 
                 # Write HELP and TYPE comments
@@ -974,29 +1006,32 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
                 metrics = data["metrics"]
                 
                 # Extract device information
-                device_id = None
+                device_id_val = None
                 device_name = None
-                bacnet_address = device_info.bacnet_address if hasattr(device_info, "bacnet_address") else None
+                bacnet_address = device_info.get("bacnet_address") if isinstance(device_info, dict) else getattr(device_info, "bacnet_address", None)
                 
                 if isinstance(device_key, int):
                     # This is a device with an ID
-                    device_id = device_key
-                    device_name = f"Device {device_id}"
+                    device_id_val = device_key
+                    device_name = f"Device {device_id_val}"
                 else:
                     # This is an interface-only entry
-                    if hasattr(device_info, "address"):
-                        bacnet_address = device_info.address
-                    elif isinstance(device_info, dict) and "address" in device_info:
+                    if isinstance(device_info, dict) and "address" in device_info:
                         bacnet_address = device_info["address"]
+                    elif hasattr(device_info, "address"):
+                        bacnet_address = getattr(device_info, "address", None)
                     
                     device_name = f"Interface {bacnet_address}"
+
+                if not bacnet_address:  # Skip if bacnet_address is None
+                    continue
                 
                 # Get address components
                 network, mac, address_type, is_mstp = self._get_address_type(bacnet_address)
                 
                 # Define base labels for this device
                 base_labels = {
-                    "device_id": str(device_id) if device_id else "",
+                    "device_id": str(device_id_val) if device_id_val else "",
                     "address": bacnet_address if bacnet_address else "",
                     "network": network if network else "0",
                     "name": device_name,
@@ -1013,16 +1048,19 @@ id dis:"ID" device dis:"Device", deviceId, bacnetAddress, network, mac, addressT
                 # Add each metric value for this device
                 for metric_name, value in metrics.items():
                     if value > 0 and metric_name in metric_name_map:  # Only include non-zero metrics
-                        prometheus_name = processed_metrics[metric_name]["name"]
+                        metric_data = processed_metrics[metric_name]
+                        # Ensure type checker knows metric_data["name"] is str
+                        current_prometheus_name: str = str(metric_data["name"])
                         
                         # Format labels according to Prometheus conventions
                         label_str = ",".join([f'{k}="{v}"' for k, v in base_labels.items()])
                         if label_str:
-                            metric_line = f'{prometheus_name}{{{label_str}}} {value}'
+                            metric_line = f'{current_prometheus_name}{{{label_str}}} {value}'
                         else:
-                            metric_line = f'{prometheus_name} {value}'
+                            metric_line = f'{current_prometheus_name} {value}'
                         
-                        processed_metrics[metric_name]["values"].append(metric_line)
+                        # Ensure type checker knows metric_data["values"] is List[str]
+                        cast(List[str], metric_data["values"]).append(metric_line)
             
             # Write all the metric values 
             for metric_info in processed_metrics.values():

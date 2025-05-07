@@ -8,6 +8,8 @@ import subprocess
 import tempfile
 import pytest
 import json
+import hszinc  # Added import
+import datetime
 
 
 class TestCommandLineInterface:
@@ -84,10 +86,56 @@ class TestCommandLineInterface:
             assert os.path.getsize(tmp_path) > 0, "Zinc file is empty"
             
             # Verify it's a valid Zinc file
-            with open(tmp_path, "r") as f:
-                content = f.read()
-                assert 'ver:"3.0"' in content, "Not a valid Zinc file"
+            with open(tmp_path, "rb") as f:  # Read in binary mode for hszinc
+                content = f.read().decode('utf-8')
+                grid = hszinc.parse(content)
+                assert isinstance(grid, hszinc.Grid), "Parsed content is not a Haystack Grid"
+
+                # Verify metadata
+                assert grid.version == "3.0", f"Expected ZINC version '3.0', got '{grid.version}'"
+                assert grid.metadata.get("database") == "bacnet", "Incorrect 'database' in metadata"
+                assert grid.metadata.get("dis") == "BACnet Corona Metrics", "Incorrect 'dis' in metadata"
+                assert isinstance(grid.metadata.get("generatedOn"), str), "'generatedOn' is not a datetime.datetime object"  # Corrected type check
+
+                # Verify columns
+                expected_columns = {
+                    "id": {"dis": "ID"},
+                    "dis": {"dis": "Device"},
+                    "device": {},
+                    "deviceId": {},
+                    "bacnetAddress": {},
+                    "network": {},
+                    "mac": {},
+                    "addressType": {},
+                    "metric": {"dis": "Metric"},
+                    "val": {"dis": "Value"},
+                    "unit": {}
+                }
+                assert len(grid.column) == len(expected_columns), "Incorrect number of columns"
+                for col_name, col_meta in expected_columns.items():
+                    assert col_name in grid.column, f"Column '{col_name}' is missing"
+                    if "dis" in col_meta:
+                        actual_col_meta = grid.column[col_name]  # Corrected line: removed .metadata
+                        assert actual_col_meta.get("dis") == col_meta["dis"], \
+                            f"Incorrect 'dis' for column '{col_name}'. Expected '{col_meta['dis']}', got '{actual_col_meta.get('dis')}'"
                 
+                # Assuming a valid pcap will produce some rows
+                assert len(grid) > 0, "Zinc file has no rows"
+
+                # Verify first row structure and types (optional, but good for deeper validation)
+                if len(grid) > 0:
+                    first_row = grid[0]
+                    assert isinstance(first_row.get("id"), hszinc.Ref), "ID in first row is not a Ref"
+                    assert isinstance(first_row.get("dis"), str), "Display name in first row is not a string"
+                    assert first_row.get("device") is hszinc.MARKER, "Device in first row is not a Marker"
+                    # deviceId can be Null or Str, so checking type might be hszinc.NULL or str
+                    # assert first_row.get("deviceId") is hszinc.NULL or isinstance(first_row.get("deviceId"), str)
+                    assert isinstance(first_row.get("bacnetAddress"), str), "bacnetAddress in first row is not a string"
+                    assert isinstance(first_row.get("metric"), str), "Metric in first row is not a string"
+                    assert isinstance(first_row.get("val"), (int, float)), "Value in first row is not an int or float"  # Ensure this is (int, float)
+                    # unit can be Null
+                    # assert first_row.get("unit") is hszinc.NULL
+
         finally:
             # Clean up
             if os.path.exists(tmp_path):

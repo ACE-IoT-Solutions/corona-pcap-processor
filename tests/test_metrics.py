@@ -9,7 +9,6 @@ import tempfile
 
 import pytest
 from rdflib import Graph, Namespace
-from rdflib.namespace import RDF, RDFS
 
 # Add parent directory to path to access modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -578,41 +577,46 @@ class TestHaystackExport:
             assert os.path.exists(tmp_path), "Zinc file was not created"
             assert os.path.getsize(tmp_path) > 0, "Zinc file is empty"
 
-            # Read the content and check structure
-            with open(tmp_path, "r") as f:
-                content = f.read()
-                
-                # Basic checks for expected structure
-                assert 'ver:"3.0"' in content, "No version marker in Zinc file"
-                assert "database:" in content, "No database marker in Zinc file"
-                assert "dis:" in content, "No dis marker in Zinc file"
-                assert "metric" in content, "No metric column in Zinc file"
-                assert "val" in content, "No val column in Zinc file"
-                
-                # Check for row data
-                lines = content.split("\n")
-                assert len(lines) > 2, "No data rows in Zinc file"
-                
-                # Check for reference markers (@)
-                has_references = False
-                for line in lines[1:]:  # Skip header
-                    if line.strip() and line.strip()[0] == "@":
-                        has_references = True
-                        break
-                assert has_references, "No reference markers in Zinc file"
-                
-                # Look for metric values
-                metrics_found = 0
-                for expected_metric in ["totalBacnetMessagesSent", "packetsReceived", "whoIsRequestsSent"]:
-                    if f'metric:"{expected_metric}"' in content:
-                        metrics_found += 1
-                assert metrics_found > 0, "No expected metrics found in Zinc file"
+            # Read the content and parse it
+            import hszinc  # Ensure hszinc is imported here if not globally for the test file
+            with open(tmp_path, "rb") as f:  # Read in binary mode
+                content_bytes = f.read()
+                grid = hszinc.parse(content_bytes.decode('utf-8'))  # Decode to string for parsing
+
+            # Basic checks for expected structure
+            assert isinstance(grid, hszinc.Grid), "Parsed content is not a Haystack Grid"
+            assert grid.version == "3.0", "No version marker in Zinc file or incorrect version"
+            assert grid.metadata.get("database") == "bacnet", "No database marker in Zinc file or incorrect value"
+            assert grid.metadata.get("dis") == "BACnet Corona Metrics", "No dis marker in Zinc file or incorrect value"
+
+            # Check for expected columns
+            expected_cols = ["id", "dis", "device", "deviceId", "bacnetAddress", "network", "mac", "addressType", "metric", "val", "unit"]
+            for col_name in expected_cols:
+                assert col_name in grid.column, f"Column '{col_name}' not found in Zinc grid"
+
+            # Check for row data
+            assert len(grid) > 0, "No data rows in Zinc file"
+
+            # Look for metric values by iterating through parsed rows
+            metrics_found_count = 0
+            expected_metrics_set = {"totalBacnetMessagesSent", "packetsReceived", "whoIsRequestsSent"}
+            actual_metrics_in_file = set()
+
+            for row in grid:
+                metric_val = row.get("metric")
+                if metric_val in expected_metrics_set:
+                    actual_metrics_in_file.add(metric_val)
+
+            # Assert that all expected metrics were found
+            # This ensures each of them is present at least once.
+            assert actual_metrics_in_file == expected_metrics_set, \
+                f"Not all expected metrics found in Zinc file. Expected: {expected_metrics_set}, Found: {actual_metrics_in_file}"
 
         finally:
             # Clean up
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
-                
+
     def test_haystack_json_export(self, metrics_generator):
         """Test that Haystack JSON export works correctly."""
         metrics_gen = metrics_generator

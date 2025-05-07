@@ -44,6 +44,7 @@ source = { editable = "." }
 dependencies = [
     { name = "bacpypes3" },
     { name = "click" },
+    { name = "hszinc" },
     { name = "pydantic" },
     { name = "python-libpcap" },
     { name = "rdflib" },
@@ -60,6 +61,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "hszinc" },
     { name = "isort" },
     { name = "mypy" },
     { name = "pytest" },
@@ -71,6 +73,7 @@ dev = [
 requires-dist = [
     { name = "bacpypes3", directory = "../BACpypes3" },
     { name = "click", specifier = ">=8.1.8" },
+    { name = "hszinc", specifier = ">=1.3.2" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=6.0.1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.5.1" },
     { name = "pydantic", specifier = ">=2.11.4" },
@@ -84,6 +87,7 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "hszinc", specifier = ">=1.3.2" },
     { name = "isort", specifier = ">=6.0.1" },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "pytest", specifier = ">=8.3.5" },
@@ -206,12 +210,33 @@ wheels = [
 ]
 
 [[package]]
+name = "hszinc"
+version = "1.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "iso8601" },
+    { name = "pyparsing" },
+    { name = "pytz" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c8/b3/727870d889858ad6f0e63d6d5be1c0bee67a996e739cb8e87cba0ba7b00a/hszinc-1.3.2.tar.gz", hash = "sha256:4a2aad0057540757077dde08f8faa26d909ecda2e1de12594f51396e659e05de", size = 70622 }
+
+[[package]]
 name = "iniconfig"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f2/97/ebf4da567aa6827c909642694d71c9fcf53e5b504f2d96afea02718862f3/iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7", size = 4793 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/e1/e6716421ea10d38022b952c159d5161ca1193197fb744506875fbb87ea7b/iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760", size = 6050 },
+]
+
+[[package]]
+name = "iso8601"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/f3/ef59cee614d5e0accf6fd0cbba025b93b272e626ca89fb70a3e9187c5d15/iso8601-2.1.0.tar.gz", hash = "sha256:6b1d3829ee8921c4301998c909f7829fa9ed3cbdac0d3b16af2d743aed1ba8df", size = 6522 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/0c/f37b6a241f0759b7653ffa7213889d89ad49a2b76eb2ddf3b57b2738c347/iso8601-2.1.0-py3-none-any.whl", hash = "sha256:aac4145c4dcb66ad8b648a02830f5e2ff6c24af20f4f482689be402db2429242", size = 7545 },
 ]
 
 [[package]]
@@ -448,6 +473,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/15/bf/a2dae0d06e48affe1bc42b949da422a039477c5ca88df7cb3f436b628e7a/python_libpcap-0.5.2.tar.gz", hash = "sha256:c1951ec353c58ff2e7006a1fc9ea2a7fc83fabad3301f4f10b77e37f2dd9fde5", size = 122772 }
 
 [[package]]
+name = "pytz"
+version = "2025.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/bf/abbd3cdfb8fbc7fb3d4d38d320f2441b1e7cbe29be4f23797b4a2b5d8aac/pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3", size = 320884 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/c4/34e93fe5f5429d7570ec1fa436f1986fb1f00c3e0f43a589fe2bbcd22c3f/pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00", size = 509225 },
+]
+
+[[package]]
 name = "rdflib"
 version = "7.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -483,6 +517,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/de/7e/fff70b02e57852fda17bd43f99dda37b9bcf3e1af3d97c5834ff48d04715/ruff-0.11.8-py3-none-win32.whl", hash = "sha256:5b18caa297a786465cc511d7f8be19226acf9c0a1127e06e736cd4e1878c3ea2", size = 10451102 },
     { url = "https://files.pythonhosted.org/packages/7b/a9/eaa571eb70648c9bde3120a1d5892597de57766e376b831b06e7c1e43945/ruff-0.11.8-py3-none-win_amd64.whl", hash = "sha256:6e70d11043bef637c5617297bdedec9632af15d53ac1e1ba29c448da9341b0c4", size = 11597410 },
     { url = "https://files.pythonhosted.org/packages/cd/be/f6b790d6ae98f1f32c645f8540d5c96248b72343b0a56fab3a07f2941897/ruff-0.11.8-py3-none-win_arm64.whl", hash = "sha256:304432e4c4a792e3da85b7699feb3426a0908ab98bf29df22a31b0cdd098fac2", size = 10713129 },
+]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050 },
 ]
 
 [[package]]
