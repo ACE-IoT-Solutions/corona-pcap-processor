@@ -38,11 +38,6 @@ The main components of the project are:
   - `test_pcap_processor.py` - Tests for the PCAP processor
   - `validate_metrics.py` - Utility for validating metrics files
 
-- `corona-standard/` - Corona standard reference
-  - `README.md` - Documentation for the Corona standard
-  - `validate_model.py` - Tool for validating metrics against the standard
-  - `example.ttl` - Example metrics file
-
 ## Installation
 
 No installation required, just clone the repository and ensure you have the required dependencies:
