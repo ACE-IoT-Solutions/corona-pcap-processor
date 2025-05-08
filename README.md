@@ -1,6 +1,7 @@
 # BACnet PCAP Processor with Corona Metrics
 
 A toolkit for analyzing BACnet packet captures (PCAP files), processing message types, extracting device information, and generating Corona-compatible metrics.
+Meant to implement the [Corona Framework Metrics](https://github.com/ACE-IoT-Solutions/corona-framework)
 
 ## Features
 
