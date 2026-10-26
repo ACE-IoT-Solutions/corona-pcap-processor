@@ -3,6 +3,11 @@
 A toolkit for analyzing BACnet packet captures (PCAP files), processing message types, extracting device information, and generating Corona-compatible metrics.
 Meant to implement the [Corona Framework Metrics](https://github.com/ACE-IoT-Solutions/corona-framework)
 
+The [Corona Network Standard](https://github.com/ACE-IoT-Solutions/corona-network-standard)
+owns the ontology and SHACL shapes for BACnet and Modbus communication topology.
+The [`ot-pcap-processor`](https://github.com/ACE-IoT-Solutions/ot-pcap-processor)
+exports topology data using that vocabulary. This repository exports BACnet metrics.
+
 ## Features
 
 - Analyzes BACnet packet captures (.pcap files)
@@ -16,7 +21,7 @@ Meant to implement the [Corona Framework Metrics](https://github.com/ACE-IoT-Sol
   - Project Haystack Zinc Grid format
   - Project Haystack JSON format
   - Prometheus exposition format with OpenTelemetry conventions
-- Validates metrics against the Corona standard
+- Checks generated RDF metrics for valid Turtle syntax
 
 ## Project Structure
 
@@ -40,10 +45,10 @@ The main components of the project are:
 
 ## Installation
 
-No installation required, just clone the repository and ensure you have the required dependencies:
+Install the locked dependencies and command-line entry point:
 
 ```bash
-pip install bacpypes3 rdflib
+uv sync --locked
 ```
 
 ## Usage
@@ -86,36 +91,32 @@ metrics_gen.export_prometheus("metrics.prom")          # Prometheus exposition f
 
 ### Using the Command-Line Tools
 
-#### Validate Metrics
+#### Check RDF Metrics Syntax
 
 ```bash
-# Validate a metrics file
-python tests/validate_metrics.py validate metrics.ttl
-
-# Validate with analysis
-python tests/validate_metrics.py validate metrics.ttl --analyze
+uv run python -c "from rdflib import Graph; print(len(Graph().parse('metrics.ttl')))"
 ```
 
 #### Process PCAP and Generate Metrics
 
 ```bash
 # Process a PCAP file and generate metrics (default TTL format)
-python generate_corona_metrics.py sample-pcap.pcap metrics.ttl
+uv run corona-pcap-processor sample-pcap.pcap metrics.ttl
 
 # Process with capture device
-python generate_corona_metrics.py sample-pcap.pcap metrics.ttl --capture-device 10.0.0.1
+uv run corona-pcap-processor sample-pcap.pcap metrics.ttl --capture-device 10.0.0.1
 
 # Generate in Haystack Zinc format
-python generate_corona_metrics.py sample-pcap.pcap metrics.zinc --format zinc
+uv run corona-pcap-processor sample-pcap.pcap metrics.zinc --format zinc
 
 # Generate in Haystack JSON format
-python generate_corona_metrics.py sample-pcap.pcap metrics.json --format json
+uv run corona-pcap-processor sample-pcap.pcap metrics.json --format json
 
 # Generate in Prometheus format with OpenTelemetry conventions
-python generate_corona_metrics.py sample-pcap.pcap metrics.prom --format prom
+uv run corona-pcap-processor sample-pcap.pcap metrics.prom --format prom
 
 # Generate with debug output
-python generate_corona_metrics.py sample-pcap.pcap metrics.ttl --debug
+uv run corona-pcap-processor sample-pcap.pcap metrics.ttl --debug
 ```
 
 ## BACnet Message Detection
@@ -181,7 +182,9 @@ All export formats cover the same metrics:
 - Router-specific metrics (forwarded messages, etc.)
 - Device identification information
 
-See the `corona-standard/README.md` file for details on the Corona standard format.
+See the [Corona Framework](https://github.com/ACE-IoT-Solutions/corona-framework)
+for metrics vocabulary and the [Corona Network Standard](https://github.com/ACE-IoT-Solutions/corona-network-standard)
+for network topology vocabulary.
 
 ## Architecture
 
