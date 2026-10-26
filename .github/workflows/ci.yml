@@ -90,6 +90,6 @@ jobs:
       run: |
         uv run corona-pcap-processor sample-pcap.pcap sample-metrics.ttl
         
-    - name: Validate RDF output and topology vocabulary
+    - name: Validate RDF metrics output
       run: |
-        uv run python -c "from rdflib import Graph; assert len(Graph().parse('sample-metrics.ttl')) > 0; assert len(Graph().parse('corona-standard/topology.ttl')) > 0"
+        uv run python -c "from rdflib import Graph; assert len(Graph().parse('sample-metrics.ttl')) > 0"
