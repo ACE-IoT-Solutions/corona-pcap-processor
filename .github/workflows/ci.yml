@@ -24,7 +24,9 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Setup uv
-      uses: astral-sh/setup-uv@v1
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        version: '0.12.15'
 
     - name: Install system dependencies
       run: |
@@ -80,7 +82,9 @@ jobs:
         python-version: '3.11'
 
     - name: Setup uv
-      uses: astral-sh/setup-uv@v1
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        version: '0.12.15'
         
     - name: Install dependencies with uv
       run: |
