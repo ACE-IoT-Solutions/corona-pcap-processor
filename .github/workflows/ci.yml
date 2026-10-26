@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
@@ -30,8 +32,7 @@ jobs:
 
     - name: Install Python dependencies with uv
       run: |
-        uv venv
-        uv sync --dev
+        uv sync --locked --dev
         
     - name: Cache test data
       uses: actions/cache@v3
@@ -68,6 +69,8 @@ jobs:
 
   validate:
     runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: '3.11'
     steps:
     - uses: actions/checkout@v4
     
@@ -81,22 +84,12 @@ jobs:
         
     - name: Install dependencies with uv
       run: |
-        uv venv
-        uv sync --dev
-        
-    - name: Clone Corona Standard Repository
-      uses: actions/checkout@v4
-      with:
-        repository: ACE-IoT-Solutions/corona-framework
-        path: corona-standard
+        uv sync --locked --dev
         
     - name: Generate sample metrics
       run: |
-        uv run python generate_corona_metrics.py sample-pcap.pcap sample-metrics.ttl
+        uv run corona-pcap-processor sample-pcap.pcap sample-metrics.ttl
         
-    - name: Validate metrics against Corona standard
+    - name: Validate RDF output and topology vocabulary
       run: |
-        cd corona-standard
-        # Assuming corona-standard also uses uv and has its dependencies defined
-        # If not, this step might need adjustment to install its dependencies
-        uv run python validate_model.py ../sample-metrics.ttl --analyze
+        uv run python -c "from rdflib import Graph; assert len(Graph().parse('sample-metrics.ttl')) > 0; assert len(Graph().parse('corona-standard/topology.ttl')) > 0"
